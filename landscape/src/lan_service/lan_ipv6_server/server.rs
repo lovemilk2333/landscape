@@ -444,6 +444,7 @@ pub async fn start_ipv6_lan_server(
 
     let mut icmp_ra_interval =
         Box::pin(tokio::time::interval(Duration::from_secs(icmp_ad_interval as u64)));
+    icmp_ra_interval.reset_immediately();
     let mut dhcp_expire_timer =
         Box::pin(tokio::time::interval(Duration::from_secs(LEASE_EXPIRE_INTERVAL)));
 
@@ -622,9 +623,7 @@ pub async fn start_ipv6_lan_server(
                     }
                 }
                 // Immediate RA after prefix change
-                handle_ra_tick(
-                    &share_status, &params, &mac_addr, icmp_ad_interval, &icmp_sender,
-                ).await;
+                icmp_ra_interval.reset_immediately();
             },
             result = service_status_subscribe.changed() => {
                 tracing::debug!("LAN v6 Service change");
