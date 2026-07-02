@@ -59,14 +59,13 @@ static __always_inline int xdp_read_ipv6(struct xdp_md *ctx, struct route_contex
     return 0;
 }
 
-// ── Forwarding checks (unchanged logic) ──
-
+// ── Forwarding checks
 static __always_inline int xdp_should_forward_v4(const struct route_context_v4 *context) {
-    return should_not_forward(context->daddr) ? XDP_DROP : 0;
+    return should_not_forward(context->daddr) ? XDP_PASS : 0;
 }
 
 static __always_inline int xdp_should_forward_v6(const struct route_context_v6 *context) {
-    return is_broadcast_ip6(context->daddr.bytes) == TC_ACT_UNSPEC ? XDP_DROP : 0;
+    return is_broadcast_ip6(context->daddr.bytes) == TC_ACT_UNSPEC ? XDP_PASS : 0;
 }
 
 // ── is_current_wan_packet: skb->ingress_ifindex → ctx->ingress_ifindex ──
