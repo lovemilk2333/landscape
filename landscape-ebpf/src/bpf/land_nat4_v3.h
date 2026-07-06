@@ -210,7 +210,7 @@ static __always_inline int nat4_v3_queue_push(u8 l4proto,
     return bpf_map_push_elem(queue, value, BPF_EXIST);
 }
 
-static __always_inline struct nat4_mapping_value_v3 *
+static __always_inline struct nat4_st_mapping_value *
 nat4_v3_lookup_static_ingress(u8 l4proto, __be16 from_port) {
     struct nat_mapping_key_v4 ingress_key = {
         .gress = NAT_MAPPING_INGRESS,
@@ -273,7 +273,7 @@ nat4_v3_insert_mappings_v4(const struct nat_mapping_key_v4 *key,
         .port = key->from_port,
         .trigger_port = val->trigger_port,
         .generation = generation,
-        .is_static = 0,
+        ._pad = 0,
         .is_allow_reuse = val->is_allow_reuse,
     };
 
@@ -690,7 +690,7 @@ static __always_inline int nat4_dyn_egress_lookup_and_check(
         .port = alloc_item->port,
         .trigger_port = pkt_ip_pair->dst_port,
         .generation = 0,
-        .is_static = 0,
+        ._pad = 0,
         .is_allow_reuse = get_flow_allow_reuse_port(skb->mark) ? 1 : 0,
     };
 
@@ -718,7 +718,7 @@ static __always_inline int nat4_st_egress_lookup(u32 ifindex, u8 ip_protocol,
         .from_port = pkt_ip_pair->src_port,
         .from_addr = pkt_ip_pair->src_addr.addr,
     };
-    struct nat4_mapping_value_v3 *static_egress =
+    struct nat4_st_mapping_value *static_egress =
         bpf_map_lookup_elem(&nat4_st_map, &static_egress_key);
     if (!static_egress && pkt_ip_pair->src_addr.addr != 0) {
         static_egress_key.from_addr = 0;
@@ -726,7 +726,7 @@ static __always_inline int nat4_st_egress_lookup(u32 ifindex, u8 ip_protocol,
     }
     if (!static_egress) return TC_ACT_SHOT;
 
-    struct nat4_mapping_value_v3 *st_ingress =
+    struct nat4_st_mapping_value *st_ingress =
         nat4_v3_lookup_static_ingress(ip_protocol, static_egress->port);
     if (!st_ingress) return TC_ACT_SHOT;
 
@@ -793,7 +793,7 @@ static __always_inline int nat4_st_ingress_lookup(u8 ip_protocol,
         .from_addr = 0,
     };
 
-    struct nat4_mapping_value_v3 *st_value = bpf_map_lookup_elem(&nat4_st_map, &ingress_key);
+    struct nat4_st_mapping_value *st_value = bpf_map_lookup_elem(&nat4_st_map, &ingress_key);
     if (!st_value) return TC_ACT_SHOT;
 
     result->lan_addr = st_value->addr;

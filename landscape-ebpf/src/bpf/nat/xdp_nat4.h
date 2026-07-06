@@ -353,7 +353,7 @@ static __always_inline int xdp_nat4_st_egress_lookup(u32 wan_ifindex, u8 ip_prot
         .from_port = pkt_ip_pair->src_port,
         .from_addr = pkt_ip_pair->src_addr.addr,
     };
-    struct nat4_mapping_value_v3 *st_egress = bpf_map_lookup_elem(&nat4_st_map, &egress_key);
+    struct nat4_st_mapping_value *st_egress = bpf_map_lookup_elem(&nat4_st_map, &egress_key);
     if (!st_egress && pkt_ip_pair->src_addr.addr != 0) {
         egress_key.from_addr = 0;
         st_egress = bpf_map_lookup_elem(&nat4_st_map, &egress_key);
@@ -440,7 +440,7 @@ static __always_inline int xdp_nat4_dyn_egress_lookup_and_check(
         .port = alloc_item->port,
         .trigger_port = pkt_ip_pair->dst_port,
         .generation = 0,
-        .is_static = 0,
+        ._pad = 0,
         .is_allow_reuse = get_flow_allow_reuse_port(mark) ? 1 : 0,
     };
 
@@ -469,7 +469,7 @@ static __always_inline int xdp_nat4_st_ingress_lookup(u8 ip_protocol,
         .from_addr = 0,
     };
 
-    struct nat4_mapping_value_v3 *st_value = bpf_map_lookup_elem(&nat4_st_map, &ingress_key);
+    struct nat4_st_mapping_value *st_value = bpf_map_lookup_elem(&nat4_st_map, &ingress_key);
     if (!st_value) return -1;
 
     result->lan_addr = st_value->addr;

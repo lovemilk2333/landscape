@@ -220,7 +220,7 @@ fn add_dynamic_mapping_pair<T: MapCore>(
         port: nat_port.to_be(),
         trigger_port: remote_port.to_be(),
         generation: 0,
-        is_static: 0,
+        _pad: 0,
         is_allow_reuse: 1,
     };
 
@@ -237,7 +237,7 @@ fn add_dynamic_mapping_pair<T: MapCore>(
         port: lan_port.to_be(),
         trigger_port: remote_port.to_be(),
         generation: GENERATION,
-        is_static: 0,
+        _pad: 0,
         is_allow_reuse: 1,
     };
 

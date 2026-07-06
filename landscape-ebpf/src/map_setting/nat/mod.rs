@@ -17,6 +17,16 @@ pub(crate) struct NatMappingKeyV4 {
 
 unsafe impl plain::Plain for NatMappingKeyV4 {}
 
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Nat4StMappingValue {
+    pub addr: u32,
+    pub port: u16,
+    pub _pad: [u8; 2],
+}
+
+unsafe impl plain::Plain for Nat4StMappingValue {}
+
 #[derive(Debug, Clone, Copy)]
 pub struct StaticNatMappingV4Item {
     pub wan_port: u16,

@@ -2,11 +2,13 @@ use landscape_common::iface::nat::RuntimeStaticNatMappingV4Config;
 use libbpf_rs::MapCore;
 
 use crate::bpf_error::LdEbpfResult;
-use crate::map_setting::share_map::types::nat4_mapping_value_v3;
 use crate::{MAP_PATHS, NAT_MAPPING_EGRESS, NAT_MAPPING_INGRESS};
 
 use super::super::RawEbpfMapEntries;
-use super::{reconcile_raw_map, update_raw_entries, NatMappingKeyV4, StaticNatMappingV4Item};
+use super::{
+    reconcile_raw_map, update_raw_entries, Nat4StMappingValue, NatMappingKeyV4,
+    StaticNatMappingV4Item,
+};
 
 pub fn build_static_nat4_entries(configs: &[RuntimeStaticNatMappingV4Config]) -> RawEbpfMapEntries {
     let mut entries = RawEbpfMapEntries::new();
@@ -56,15 +58,13 @@ fn insert_static_nat4_item_entries(
         from_addr: static_mapping.lan_ip.to_bits().to_be(),
     };
 
-    let mut ingress_mapping_value = nat4_mapping_value_v3::default();
-    let mut egress_mapping_value = nat4_mapping_value_v3::default();
+    let mut ingress_mapping_value = Nat4StMappingValue::default();
+    let mut egress_mapping_value = Nat4StMappingValue::default();
 
     ingress_mapping_value.port = static_mapping.lan_port.to_be();
     ingress_mapping_value.addr = static_mapping.lan_ip.to_bits().to_be();
-    ingress_mapping_value.is_static = 1;
 
     egress_mapping_value.port = static_mapping.wan_port.to_be();
-    egress_mapping_value.is_static = 1;
 
     entries.insert(
         unsafe { plain::as_bytes(&ingress_mapping_key) }.to_vec(),

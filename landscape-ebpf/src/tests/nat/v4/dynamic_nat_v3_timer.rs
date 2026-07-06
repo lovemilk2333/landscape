@@ -105,7 +105,7 @@ fn mapping_pair() -> (types::nat4_mapping_value_v3, types::nat4_mapping_value_v3
         port: NAT_PORT.to_be(),
         trigger_port: 443u16.to_be(),
         generation: 0,
-        is_static: 0,
+        _pad: 0,
         is_allow_reuse: 1,
     };
     let ingress = types::nat4_mapping_value_v3 {
@@ -115,7 +115,7 @@ fn mapping_pair() -> (types::nat4_mapping_value_v3, types::nat4_mapping_value_v3
         port: LAN_PORT.to_be(),
         trigger_port: 443u16.to_be(),
         generation: GENERATION,
-        is_static: 0,
+        _pad: 0,
         is_allow_reuse: 1,
     };
     (egress, ingress)

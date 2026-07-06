@@ -128,6 +128,12 @@ struct nat4_egress_nat_result {
     u8 _pad;
 };
 
+struct nat4_st_mapping_value {
+    __be32 addr;
+    __be16 port;
+    u8 _pad[2];
+};
+
 struct nat4_lan_result {
     __be32 lan_addr;
     __be16 lan_port;

@@ -85,7 +85,6 @@ fn write_static_mapping_v4(
     from_addr: [u8; 4],
     to_addr: [u8; 4],
     to_port: u16,
-    is_static: u8,
 ) {
     let mut k = [0u8; 8];
     k[0] = gress;
@@ -93,10 +92,9 @@ fn write_static_mapping_v4(
     k[2..4].copy_from_slice(&from_port.to_be_bytes());
     k[4..8].copy_from_slice(&from_addr);
 
-    let mut v = [0u8; 24];
-    v[8..12].copy_from_slice(&to_addr);
-    v[16..18].copy_from_slice(&to_port.to_be_bytes());
-    v[22] = is_static;
+    let mut v = [0u8; 8];
+    v[0..4].copy_from_slice(&to_addr);
+    v[4..6].copy_from_slice(&to_port.to_be_bytes());
 
     map.update(&k, &v, MapFlags::ANY).unwrap();
 }
@@ -144,12 +142,10 @@ fn assert_static_map_entry(
 ) {
     let val = lookup_nat4_mapping(map, gress, l4proto, from_port, from_addr)
         .expect(&format!("static map entry should exist: gress={gress} l4={l4proto} port={from_port} addr={from_addr:?}"));
-    let addr = [val[8], val[9], val[10], val[11]];
-    let port = u16::from_be_bytes([val[16], val[17]]);
-    let is_static = val[22];
+    let addr = [val[0], val[1], val[2], val[3]];
+    let port = u16::from_be_bytes([val[4], val[5]]);
     assert_eq!(addr, expected_addr, "nat addr mismatch");
     assert_eq!(port, expected_port, "nat port mismatch");
-    assert_eq!(is_static, 1, "is_static should be 1");
 }
 
 fn assert_no_dyn_map_entry(
@@ -235,7 +231,6 @@ fn xdp_nat_static_egress() {
         [192, 168, 1, 100],
         [203, 0, 113, 1],
         8080,
-        1,
     );
     write_static_mapping_v4(
         &share.maps.nat4_st_map,
@@ -245,7 +240,6 @@ fn xdp_nat_static_egress() {
         [203, 0, 113, 1],
         [192, 168, 1, 100],
         80,
-        1,
     );
 
     let mut wan_key = [0u8; 8];
@@ -329,7 +323,6 @@ fn xdp_nat_static_ingress() {
         [203, 0, 113, 1],
         [192, 168, 1, 100],
         80,
-        1,
     );
 
     let pkt = build_tcp_pkt([10, 0, 0, 1], [203, 0, 113, 1], 9999, 8080);
@@ -585,7 +578,6 @@ fn xdp_nat_firewall_pipeline() {
         [192, 168, 1, 100],
         [203, 0, 113, 1],
         8080,
-        1,
     );
     write_static_mapping_v4(
         &share.maps.nat4_st_map,
@@ -595,7 +587,6 @@ fn xdp_nat_firewall_pipeline() {
         [203, 0, 113, 1],
         [192, 168, 1, 100],
         80,
-        1,
     );
 
     let mut wan_key = [0u8; 8];
@@ -1574,7 +1565,6 @@ fn xdp_nat_icmp_error_egress() {
         [192, 168, 1, 200],
         [203, 0, 113, 1],
         0,
-        1,
     );
     write_static_mapping_v4(
         &share.maps.nat4_st_map,
@@ -1584,7 +1574,6 @@ fn xdp_nat_icmp_error_egress() {
         [203, 0, 113, 1],
         [192, 168, 1, 200],
         0,
-        1,
     );
 
     let mut wan_key = [0u8; 8];
@@ -1668,7 +1657,6 @@ fn xdp_nat_static_ingress_mark() {
         [203, 0, 113, 1],
         [192, 168, 1, 100],
         80,
-        1,
     );
 
     let pkt = build_tcp_pkt([10, 0, 0, 1], [203, 0, 113, 1], 9999, 8080);
@@ -1771,7 +1759,6 @@ fn xdp_nat_chain_pipeline() {
         [192, 168, 1, 100],
         [203, 0, 113, 1],
         8080,
-        1,
     );
     write_static_mapping_v4(
         &share.maps.nat4_st_map,
@@ -1781,7 +1768,6 @@ fn xdp_nat_chain_pipeline() {
         [203, 0, 113, 1],
         [192, 168, 1, 100],
         80,
-        1,
     );
 
     let pkt = build_tcp_pkt([192, 168, 1, 100], [10, 0, 0, 1], 80, 9999);
