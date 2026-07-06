@@ -47,10 +47,6 @@ mod xdp_mss_test;
 mod xdp_nat_test;
 mod xdp_wan_route_test;
 
-pub(crate) mod test_firewall_packet {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/bpf_rs/test_firewall_packet.skel.rs"));
-}
-
 pub(crate) mod test_route_packet {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/bpf_rs/test_route_packet.skel.rs"));
 }
