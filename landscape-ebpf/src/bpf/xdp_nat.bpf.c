@@ -11,7 +11,6 @@
 #include "scanner/xdp_scanner6.h"
 #include "nat/xdp_nat4.h"
 #include "nat/xdp_nat6.h"
-#include "nat/xdp_nat6_v3.h"
 #include "chain/xdp_meta.h"
 #include "chain/xdp_wan_maps.h"
 #include "chain/xdp_lan_maps.h"
