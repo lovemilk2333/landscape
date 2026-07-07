@@ -41,6 +41,8 @@ export default {
     add_port: "+ 添加端口",
     local_all_ports_disallowed: "本机目标不支持全端口开放",
     port_list_required: "请至少添加一个端口",
+    port_conflict_warning:
+      "端口 {port} 与 {iface} 上的动态 {protocol} 端口范围 {start}-{end} 冲突",
   },
   service_edit: {
     title: "网卡NAT配置",

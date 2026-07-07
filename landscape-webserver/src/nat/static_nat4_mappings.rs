@@ -1,7 +1,9 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
 use landscape_common::config::ConfigId;
-use landscape_common::iface::nat::{StaticNatError, StaticNatMappingV4Config};
+use landscape_common::iface::nat::{
+    PortConflictCheckResponse, StaticNatError, StaticNatMappingV4Config,
+};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -14,6 +16,7 @@ pub fn get_static_nat_mapping_v4_paths() -> OpenApiRouter<LandscapeApp> {
         .routes(routes!(get_static_nat_mappings_v4, add_static_nat_mapping_v4))
         .routes(routes!(get_static_nat_mapping_v4, del_static_nat_mapping_v4))
         .routes(routes!(add_many_static_nat_mappings_v4))
+        .routes(routes!(check_static_nat_v4_conflict))
 }
 
 #[utoipa::path(
@@ -105,4 +108,50 @@ async fn del_static_nat_mapping_v4(
 ) -> LandscapeApiResult<()> {
     state.static_nat4_mapping_service.delete(id).await;
     LandscapeApiResp::success(())
+}
+
+#[derive(serde::Deserialize)]
+struct CheckConflictQuery {
+    wan_port: u16,
+    protocols: String,
+}
+
+#[utoipa::path(
+    get,
+    path = "/static_mappings/v4/check-conflict",
+    tag = "Static NAT Mappings",
+    params(
+        ("wan_port" = u16, Query, description = "WAN port to check for dynamic range conflict"),
+        ("protocols" = String, Query, description = "Comma-separated protocol numbers (6=TCP, 17=UDP)")
+    ),
+    responses((status = 200, body = CommonApiResp<PortConflictCheckResponse>))
+)]
+async fn check_static_nat_v4_conflict(
+    State(state): State<LandscapeApp>,
+    Query(params): Query<CheckConflictQuery>,
+) -> LandscapeApiResult<PortConflictCheckResponse> {
+    let protocols: Vec<u8> =
+        params.protocols.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+
+    match state.static_nat4_mapping_service.check_port_conflict(params.wan_port, &protocols).await?
+    {
+        Some(StaticNatError::PortConflict { port, iface_name, protocol, start, end }) => {
+            LandscapeApiResp::success(PortConflictCheckResponse {
+                conflict: true,
+                port: Some(port),
+                protocol: Some(protocol),
+                iface_name: Some(iface_name),
+                start: Some(start),
+                end: Some(end),
+            })
+        }
+        _ => LandscapeApiResp::success(PortConflictCheckResponse {
+            conflict: false,
+            port: None,
+            protocol: None,
+            iface_name: None,
+            start: None,
+            end: None,
+        }),
+    }
 }

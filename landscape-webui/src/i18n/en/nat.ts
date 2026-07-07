@@ -45,6 +45,8 @@ export default {
     local_all_ports_disallowed:
       "Local target does not support opening all ports",
     port_list_required: "Please add at least one port",
+    port_conflict_warning:
+      "Port {port} conflicts with dynamic {protocol} range {start}-{end} on {iface}",
   },
   service_edit: {
     title: "Interface NAT Config",

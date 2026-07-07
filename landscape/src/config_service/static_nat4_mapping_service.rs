@@ -126,6 +126,33 @@ impl StaticNat4MappingService {
         Ok(())
     }
 
+    pub async fn check_port_conflict(
+        &self,
+        wan_port: u16,
+        protocols: &[u8],
+    ) -> Result<Option<StaticNatError>, LdError> {
+        let Some(nat_config) = self.nat_store.find_active_nat_config().await? else {
+            return Ok(None);
+        };
+        for proto in protocols {
+            let range = match *proto {
+                6 => &nat_config.nat_config.tcp_range,
+                17 => &nat_config.nat_config.udp_range,
+                _ => continue,
+            };
+            if wan_port >= range.start && wan_port <= range.end {
+                return Ok(Some(StaticNatError::PortConflict {
+                    port: wan_port,
+                    iface_name: nat_config.iface_name.clone(),
+                    protocol: *proto,
+                    start: range.start,
+                    end: range.end,
+                }));
+            }
+        }
+        Ok(None)
+    }
+
     pub async fn validate_no_dynamic_port_conflict(
         &self,
         config: &StaticNatMappingV4Config,

@@ -5,11 +5,14 @@ import type {
   StaticNatV4Target,
 } from "@landscape-router/types/api/schemas";
 
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { useDebounceFn } from "@vueuse/core";
 import ConfigModal from "@/components/common/ConfigModal.vue";
 import {
   get_static_nat_mapping_v4,
   push_static_nat_mapping_v4,
+  check_static_nat_v4_conflict,
+  type PortConflictCheckResponse,
 } from "@/api/static_nat_mapping";
 import { useEnrolledDeviceStore } from "@/stores/enrolled_device";
 import { useI18n } from "vue-i18n";
@@ -49,6 +52,68 @@ const commit_spin = ref(false);
 const isModified = computed(() => {
   return JSON.stringify(rule.value) !== origin_rule_json.value;
 });
+
+const conflictMap = ref<Record<number, PortConflictCheckResponse>>({});
+
+async function checkSinglePort(wanPort: number) {
+  if (!wanPort || wanPort <= 0 || wanPort > 65535) {
+    delete conflictMap.value[wanPort];
+    return;
+  }
+  if (!rule.value?.enable) {
+    delete conflictMap.value[wanPort];
+    return;
+  }
+  const protocols = rule.value?.l4_protocols || [];
+  if (protocols.length === 0) {
+    delete conflictMap.value[wanPort];
+    return;
+  }
+  try {
+    const result = await check_static_nat_v4_conflict(wanPort, protocols);
+    if (result.conflict) {
+      conflictMap.value[wanPort] = result;
+    } else {
+      delete conflictMap.value[wanPort];
+    }
+  } catch {
+    // Silently ignore errors in real-time check
+  }
+}
+
+const debouncedCheck = useDebounceFn(checkSinglePort, 500);
+
+watch(
+  () => rule.value?.mapping_pair_ports?.map((p) => p.wan_port),
+  (newPorts) => {
+    if (!newPorts) return;
+    for (const port of newPorts) {
+      debouncedCheck(port);
+    }
+  },
+);
+
+watch(
+  () => rule.value?.l4_protocols,
+  () => {
+    rule.value?.mapping_pair_ports?.forEach((pair) =>
+      debouncedCheck(pair.wan_port),
+    );
+  },
+);
+
+watch(
+  () => rule.value?.enable,
+  (enabled) => {
+    if (!enabled) {
+      conflictMap.value = {};
+    } else {
+      rule.value?.mapping_pair_ports?.forEach((pair) =>
+        debouncedCheck(pair.wan_port),
+      );
+    }
+  },
+);
 
 const rule_enabled = computed({
   get() {
@@ -120,6 +185,12 @@ async function enter() {
   }
   syncTargetFormFromRule();
   origin_rule_json.value = JSON.stringify(rule.value);
+
+  if (rule.value?.enable) {
+    rule.value.mapping_pair_ports.forEach((pair) => {
+      if (pair.wan_port > 0) debouncedCheck(pair.wan_port);
+    });
+  }
 
   const focusIdx = props.initialFocusIndex;
   if (focusIdx !== undefined && focusIdx >= 0) {
@@ -311,58 +382,76 @@ const mappingPortsRule = {
             :rule="mappingPortsRule"
           >
             <n-flex vertical style="width: 100%; gap: 8px">
-              <n-flex
+              <template
                 v-for="(pair, index) in rule.mapping_pair_ports"
                 :key="index"
-                align="center"
-                style="gap: 8px"
               >
-                <n-form-item
-                  style="flex: 1; margin-bottom: 0"
-                  :show-label="false"
-                  :show-feedback="false"
-                  :path="`mapping_pair_ports[${index}].wan_port`"
-                  :rule="wanPortRule"
+                <n-flex align="center" style="gap: 8px">
+                  <n-form-item
+                    style="flex: 1; margin-bottom: 0"
+                    :show-label="false"
+                    :show-feedback="false"
+                    :path="`mapping_pair_ports[${index}].wan_port`"
+                    :rule="wanPortRule"
+                  >
+                    <n-input-number
+                      :ref="
+                        (el: any) => {
+                          if (el) portInputRefs[index] = el;
+                        }
+                      "
+                      v-model:value="pair.wan_port"
+                      :min="1"
+                      :max="65535"
+                      :placeholder="t('nat.mapping.public_port_placeholder')"
+                      style="width: 100%"
+                    />
+                  </n-form-item>
+                  <span style="color: #999">&rarr;</span>
+                  <n-form-item
+                    style="flex: 1; margin-bottom: 0"
+                    :show-label="false"
+                    :show-feedback="false"
+                    :path="`mapping_pair_ports[${index}].lan_port`"
+                    :rule="lanPortRule"
+                  >
+                    <n-input-number
+                      v-model:value="pair.lan_port"
+                      :min="1"
+                      :max="65535"
+                      :placeholder="t('nat.mapping.private_port_placeholder')"
+                      style="width: 100%"
+                    />
+                  </n-form-item>
+                  <n-button
+                    v-if="rule.mapping_pair_ports.length > 1"
+                    size="small"
+                    @click="removePortPair(index)"
+                    secondary
+                    type="error"
+                  >
+                    {{ t("nat.mapping.delete") }}
+                  </n-button>
+                </n-flex>
+                <n-alert
+                  v-if="conflictMap[pair.wan_port]"
+                  type="warning"
+                  style="margin-top: 4px"
                 >
-                  <n-input-number
-                    :ref="
-                      (el: any) => {
-                        if (el) portInputRefs[index] = el;
-                      }
-                    "
-                    v-model:value="pair.wan_port"
-                    :min="1"
-                    :max="65535"
-                    :placeholder="t('nat.mapping.public_port_placeholder')"
-                    style="width: 100%"
-                  />
-                </n-form-item>
-                <span style="color: #999">&rarr;</span>
-                <n-form-item
-                  style="flex: 1; margin-bottom: 0"
-                  :show-label="false"
-                  :show-feedback="false"
-                  :path="`mapping_pair_ports[${index}].lan_port`"
-                  :rule="lanPortRule"
-                >
-                  <n-input-number
-                    v-model:value="pair.lan_port"
-                    :min="1"
-                    :max="65535"
-                    :placeholder="t('nat.mapping.private_port_placeholder')"
-                    style="width: 100%"
-                  />
-                </n-form-item>
-                <n-button
-                  v-if="rule.mapping_pair_ports.length > 1"
-                  size="small"
-                  @click="removePortPair(index)"
-                  secondary
-                  type="error"
-                >
-                  {{ t("nat.mapping.delete") }}
-                </n-button>
-              </n-flex>
+                  {{
+                    t("nat.mapping.port_conflict_warning", {
+                      port: pair.wan_port,
+                      protocol:
+                        conflictMap[pair.wan_port].protocol === 6
+                          ? "TCP"
+                          : "UDP",
+                      start: conflictMap[pair.wan_port].start!,
+                      end: conflictMap[pair.wan_port].end!,
+                      iface: conflictMap[pair.wan_port].iface_name!,
+                    })
+                  }}
+                </n-alert>
+              </template>
               <n-button @click="addPortPair" dashed block size="small">
                 {{ t("nat.mapping.add_port_pair") }}
               </n-button>

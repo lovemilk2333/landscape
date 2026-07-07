@@ -4,6 +4,7 @@ import {
   addStaticNatMappingV4,
   delStaticNatMappingV4,
   addManyStaticNatMappingsV4,
+  checkStaticNatV4Conflict,
   getStaticNatMappingsV6,
   getStaticNatMappingV6,
   addStaticNatMappingV6,
@@ -11,9 +12,14 @@ import {
   addManyStaticNatMappingsV6,
 } from "@landscape-router/types/api/static-nat-mappings/static-nat-mappings";
 import type {
+  CheckStaticNatV4ConflictParams,
   StaticNatMappingV4Config,
   StaticNatMappingV6Config,
 } from "@landscape-router/types/api/schemas";
+import type { LandscapeApiRespPortConflictCheckResponseData } from "@landscape-router/types/api/schemas";
+
+export type PortConflictCheckResponse =
+  LandscapeApiRespPortConflictCheckResponseData;
 
 // --- IPv4 ---
 
@@ -43,6 +49,17 @@ export async function push_many_static_nat_mapping_v4(
 
 export async function delete_static_nat_mapping_v4(id: string): Promise<void> {
   await delStaticNatMappingV4(id);
+}
+
+export async function check_static_nat_v4_conflict(
+  wan_port: number,
+  protocols: number[],
+): Promise<LandscapeApiRespPortConflictCheckResponseData> {
+  const params: CheckStaticNatV4ConflictParams = {
+    wan_port,
+    protocols: protocols.join(","),
+  };
+  return checkStaticNatV4Conflict(params);
 }
 
 // --- IPv6 ---
