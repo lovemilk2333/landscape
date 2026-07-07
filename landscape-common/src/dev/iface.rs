@@ -1,11 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use super::wifi::LandscapeWifiInterface;
+use crate::config_service::iface::{IfaceZoneType, NetworkIfaceConfig};
 use crate::dev::LandscapeInterface;
-use crate::iface::config::{IfaceZoneType, NetworkIfaceConfig};
-use dev_wifi::LandscapeWifiInterface;
-
-pub mod config;
-pub mod dev_wifi;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
@@ -33,39 +30,30 @@ pub struct ChangeZone {
     pub zone: IfaceZoneType,
 }
 
-// 前端渲染拓扑节点
 #[derive(Serialize, Debug, Clone)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct IfaceTopology {
-    // 配置
     #[serde(flatten)]
     pub config: NetworkIfaceConfig,
-    // 当前的状态: 除了 IP 之类的
     #[serde(flatten)]
     pub status: LandscapeInterface,
-
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
     pub wifi_info: Option<LandscapeWifiInterface>,
 }
 
-/// 已管理的网卡
 #[derive(Serialize, Debug, Clone)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct IfaceInfo {
-    /// 持久化的配置
     pub config: NetworkIfaceConfig,
-    /// 当前网卡的配置, 可能网卡现在不存在
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
     pub status: Option<LandscapeInterface>,
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
     pub wifi_info: Option<LandscapeWifiInterface>,
 }
 
-/// 未纳入配置的网卡
 #[derive(Serialize, Debug, Clone)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct RawIfaceInfo {
-    /// 当前网卡的配置
     pub status: LandscapeInterface,
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
     pub wifi_info: Option<LandscapeWifiInterface>,

@@ -262,8 +262,10 @@ impl FlowConfigRepository {
     }
 }
 
-type DevicesById =
-    std::collections::HashMap<DBId, landscape_common::enrolled_device::EnrolledDevice>;
+type DevicesById = std::collections::HashMap<
+    DBId,
+    landscape_common::config_service::enrolled_device::EnrolledDevice,
+>;
 
 fn collect_device_ids<'a>(
     modes: impl IntoIterator<Item = &'a FlowEntryMatchMode>,
@@ -354,7 +356,7 @@ pub fn find_duplicate_resolved_modes(
 #[cfg(test)]
 mod tests {
     use super::{find_duplicate_resolved_modes, find_missing_device_id, DevicesById};
-    use landscape_common::enrolled_device::EnrolledDevice;
+    use landscape_common::config_service::enrolled_device::EnrolledDevice;
     use landscape_common::flow::{FlowEntryMatchMode, ResolvedFlowEntryMatchMode};
     use landscape_common::net::MacAddr;
     use sea_orm::prelude::Uuid;

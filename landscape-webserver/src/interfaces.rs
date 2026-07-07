@@ -2,15 +2,15 @@ use axum::extract::{Path, State};
 use landscape::{get_existing_linklocal, get_iface_by_name, set_iface_ip_no_limit};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
 use landscape_common::database::LandscapeStore;
-use landscape_common::iface::{IfaceTopology, IfacesInfo};
+use landscape_common::dev::iface::{IfaceTopology, IfacesInfo};
 use landscape_common::service::controller::ControllerService;
 use landscape_common::{
-    iface::config::{IfaceCpuSoftBalance, NetworkIfaceConfig},
-    iface::BridgeCreate,
+    config_service::iface::{IfaceCpuSoftBalance, NetworkIfaceConfig},
+    dev::iface::BridgeCreate,
 };
 use landscape_common::{
-    iface::config::{IfaceZoneType, WifiMode},
-    iface::{AddController, ChangeZone},
+    config_service::iface::{IfaceZoneType, WifiMode},
+    dev::iface::{AddController, ChangeZone},
 };
 use std::net::IpAddr;
 use tracing::error;

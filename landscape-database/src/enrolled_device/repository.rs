@@ -1,4 +1,4 @@
-use landscape_common::{enrolled_device::EnrolledDevice, error::LdError};
+use landscape_common::{config_service::enrolled_device::EnrolledDevice, error::LdError};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::net::{Ipv4Addr, Ipv6Addr};
 

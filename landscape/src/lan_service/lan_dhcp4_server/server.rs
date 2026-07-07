@@ -11,12 +11,12 @@ use crate::dump::udp_packet::dhcp::{
 
 use arc_swap::ArcSwap;
 use cidr::Ipv4Inet;
+#[cfg(test)]
+use landscape_common::config_service::enrolled_device::EnrolledDevice;
 use landscape_common::dns::dnr::{
     encode_dhcpv4_dnr_payload_truncated, is_valid_dnr_ipv4_addr, normalize_advertise_domains,
     DHCPV4_DNR_OPTION_CODE,
 };
-#[cfg(test)]
-use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::event::hub::{IPv4AssignEvent, IPv4AssignEventSender, IPv4AssignInfo};
 use landscape_common::lan_service::lan_dhcpv4::config::{
     CustomDhcpOption, DHCPv4ServerConfig, DhcpV4DnrOptionConfig,
@@ -758,8 +758,8 @@ mod tests {
 
     use arc_swap::ArcSwap;
     use landscape_common::{
+        config_service::enrolled_device::EnrolledDevice,
         dns::dnr::{encode_dns_name, DHCPV4_DNR_OPTION_CODE},
-        enrolled_device::EnrolledDevice,
         lan_service::lan_dhcpv4::config::{
             CustomDhcpOption, DHCPv4ServerConfig, DhcpV4DnrOptionConfig,
         },

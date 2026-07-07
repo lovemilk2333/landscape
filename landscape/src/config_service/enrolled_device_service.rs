@@ -1,4 +1,4 @@
-use landscape_common::enrolled_device::EnrolledDevice;
+use landscape_common::config_service::enrolled_device::EnrolledDevice;
 use landscape_common::event::hub::{EnrolledDeviceEvent, EnrolledDeviceEventSender};
 use landscape_database::enrolled_device::repository::EnrolledDeviceRepository;
 use landscape_database::provider::LandscapeDBServiceProvider;

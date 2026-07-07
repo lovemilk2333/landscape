@@ -2,7 +2,7 @@ use std::{collections::HashMap, net::Ipv4Addr, time::Instant};
 
 use cidr::Ipv4Inet;
 use landscape_common::{
-    enrolled_device::EnrolledDevice,
+    config_service::enrolled_device::EnrolledDevice,
     lan_service::lan_dhcpv4::{
         config::{CustomDhcpOption, DHCPv4ServerConfig},
         status::{DHCPv4OfferInfo, DHCPv4OfferInfoItem},
@@ -484,7 +484,7 @@ mod tests {
     use std::{net::Ipv4Addr, thread::sleep, time::Duration};
 
     use landscape_common::{
-        enrolled_device::EnrolledDevice,
+        config_service::enrolled_device::EnrolledDevice,
         lan_service::lan_dhcpv4::config::{CustomDhcpOption, DHCPv4ServerConfig},
         net::MacAddr,
     };

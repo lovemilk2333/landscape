@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
+use landscape_common::config_service::enrolled_device::EnrolledDevice;
 use landscape_common::config_service::static_nat::config6::{
     RuntimeStaticNatMappingV6Config, StaticNatMappingV6Config, StaticNatV6Target,
 };
 use landscape_common::config_service::static_nat::error::StaticNatError;
-use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::error::LdError;
 use landscape_common::lan_service::lan_ipv6::{
     checked_allocate_subnet, checked_combine_ipv6_prefix_suffix,

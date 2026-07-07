@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
+use landscape_common::config_service::enrolled_device::EnrolledDevice;
 use landscape_common::config_service::static_nat::config4::{
     RuntimeStaticNatMappingV4Config, StaticNatMappingV4Config, StaticNatV4Target,
 };
 use landscape_common::config_service::static_nat::error::StaticNatError;
-use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::error::LdError;
 use migration::Expr;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Value};

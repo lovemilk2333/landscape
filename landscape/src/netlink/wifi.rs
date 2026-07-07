@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use futures::TryStreamExt;
-pub use landscape_common::iface::dev_wifi::{LandscapeWifiInterface, WLANType};
+pub use landscape_common::dev::wifi::{LandscapeWifiInterface, WLANType};
 use wl_nl80211::Nl80211Message;
 
 use super::handle::create_wifi_handle;

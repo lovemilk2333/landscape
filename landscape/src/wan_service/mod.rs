@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use landscape_common::{error::LdResult, iface::config::IfaceCpuSoftBalance};
+use landscape_common::{config_service::iface::IfaceCpuSoftBalance, error::LdResult};
 
 pub mod dhcpv4_client;
 pub mod firewall;
@@ -67,7 +67,7 @@ pub fn cpu_nums() -> usize {
 #[cfg(test)]
 mod tests {
 
-    use landscape_common::iface::config::IfaceCpuSoftBalance;
+    use landscape_common::config_service::iface::IfaceCpuSoftBalance;
 
     use super::setting_iface_balance;
 

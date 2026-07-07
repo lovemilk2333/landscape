@@ -5,11 +5,11 @@ use std::{
 };
 
 use landscape_common::{
+    config_service::enrolled_device::EnrolledDevice,
     dhcp::v6_server::{
         config::{DHCPv6IANAConfig, DHCPv6IAPDConfig},
         status::{DHCPv6AddressItem, DHCPv6OfferInfo, DHCPv6PrefixItem},
     },
-    enrolled_device::EnrolledDevice,
     lan_service::lan_ipv6::{checked_allocate_subnet, LanPrefixGroupConfig, PrefixParentSource},
     lan_service::lan_ipv6::{IPv6NAInfo, IPv6NAInfoItem},
     net::MacAddr,

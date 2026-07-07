@@ -13,7 +13,7 @@ use landscape_common::{dns::FlowDnsDesiredState, event::DnsMetricMessage, servic
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::sync::CancellationToken;
 
-use landscape_common::enrolled_device::EnrolledDevice;
+use landscape_common::config_service::enrolled_device::EnrolledDevice;
 
 use crate::{
     convert_record_type,

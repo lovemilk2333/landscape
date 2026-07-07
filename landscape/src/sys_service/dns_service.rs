@@ -4,9 +4,9 @@ use std::time::Instant;
 
 use landscape_common::{
     config::DnsRuntimeConfig,
+    config_service::enrolled_device::EnrolledDevice,
     dns::check::DnsCheckError,
     dns::{CacheRuntimeConfig, DohRuntimeConfig, FlowDnsDependencies},
-    enrolled_device::EnrolledDevice,
     event::{dns::DnsEvent, hub::EnrolledDeviceEventReader, DnsMetricMessage},
     service::{
         controller::{ConfigController, FlowConfigController},

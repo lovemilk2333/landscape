@@ -1,6 +1,6 @@
 use tokio::sync::{broadcast, mpsc};
 
-use crate::enrolled_device::EnrolledDevice;
+use crate::config_service::enrolled_device::EnrolledDevice;
 
 #[derive(Debug, Clone)]
 pub enum EnrolledDeviceEvent {

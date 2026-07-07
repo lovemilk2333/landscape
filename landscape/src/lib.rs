@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 
 use futures::stream::TryStreamExt;
+use landscape_common::config_service::iface::{
+    CreateDevType, IfaceZoneType, NetworkIfaceConfig, WifiMode,
+};
 use landscape_common::dev::{DevState, LandscapeInterface};
-use landscape_common::iface::config::{CreateDevType, IfaceZoneType, NetworkIfaceConfig, WifiMode};
 use tracing::error;
 
 pub mod boot;

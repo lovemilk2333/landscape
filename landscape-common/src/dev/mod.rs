@@ -3,6 +3,9 @@ use libc::{c_char, if_nametoindex};
 use serde::{Deserialize, Serialize};
 use std::ffi::CString;
 
+pub mod iface;
+pub mod wifi;
+
 /// 当前硬件状态结构体
 #[derive(Debug, Serialize, Clone)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-pub use landscape_common::iface::{IfaceInfo, IfaceTopology, IfacesInfo, RawIfaceInfo};
+pub use landscape_common::dev::iface::{IfaceInfo, IfaceTopology, IfacesInfo, RawIfaceInfo};
 use landscape_common::service::controller::ConfigController;
 use landscape_common::{
-    iface::config::{IfaceCpuSoftBalance, IfaceZoneType, NetworkIfaceConfig, WifiMode},
-    iface::{AddController, BridgeCreate, ChangeZone},
+    config_service::iface::{IfaceCpuSoftBalance, IfaceZoneType, NetworkIfaceConfig, WifiMode},
+    dev::iface::{AddController, BridgeCreate, ChangeZone},
 };
 use landscape_database::iface::repository::NetIfaceRepository;
 use landscape_database::provider::LandscapeDBServiceProvider;

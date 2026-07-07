@@ -2,8 +2,8 @@ use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config_service::iface::{ServiceKind, ZoneAwareConfig, ZoneRequirement};
 use crate::database::repository::LandscapeDBStore;
-use crate::iface::config::{ServiceKind, ZoneAwareConfig, ZoneRequirement};
 use crate::net::MacAddr;
 use crate::store::storev2::LandscapeStore;
 use crate::sys_service::route_service::{LanRouteInfo, LanRouteMode};

@@ -1,5 +1,5 @@
 use crate::repository::UpdateActiveModel;
-use landscape_common::{enrolled_device::EnrolledDevice, net::MacAddr};
+use landscape_common::{config_service::enrolled_device::EnrolledDevice, net::MacAddr};
 use sea_orm::{entity::prelude::*, ActiveValue::Set};
 use serde::{Deserialize, Serialize};
 

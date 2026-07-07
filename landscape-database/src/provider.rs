@@ -201,9 +201,9 @@ define_store!(
 #[cfg(test)]
 mod tests {
     use landscape_common::config::{InitConfig, StoreRuntimeConfig};
+    use landscape_common::config_service::iface::{IfaceZoneType, NetworkIfaceConfig};
     use landscape_common::database::LandscapeStore;
     use landscape_common::error::LdError;
-    use landscape_common::iface::config::{IfaceZoneType, NetworkIfaceConfig};
 
     use crate::provider::LandscapeDBServiceProvider;
 

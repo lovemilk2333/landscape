@@ -108,11 +108,13 @@ pub struct LandscapeApp {
 }
 
 impl LandscapeApp {
-    pub(crate) async fn validate_zone<C: landscape_common::iface::config::ZoneAwareConfig>(
+    pub(crate) async fn validate_zone<
+        C: landscape_common::config_service::iface::ZoneAwareConfig,
+    >(
         &self,
         config: &C,
     ) -> Result<(), landscape_common::service::ServiceConfigError> {
-        use landscape_common::iface::config::{IfaceZoneType, ZoneRequirement};
+        use landscape_common::config_service::iface::{IfaceZoneType, ZoneRequirement};
         use landscape_common::service::ServiceConfigError;
 
         let iface_name = config.iface_name();
