@@ -1,5 +1,5 @@
 use crate::repository::UpdateActiveModel;
-use landscape_common::geo::GeoSiteSourceConfig;
+use landscape_common::config_service::geo::GeoSiteSourceConfig;
 use sea_orm::{entity::prelude::*, ActiveValue::Set};
 use serde::{Deserialize, Serialize};
 

@@ -9,7 +9,7 @@ use crate::utils::id::gen_database_uuid;
 use crate::utils::time::get_f64_timestamp;
 use crate::{flow::mark::FlowMark, store::storev2::LandscapeStore};
 
-use crate::geo::GeoConfigKey;
+use crate::config_service::geo::GeoConfigKey;
 
 #[derive(thiserror::Error, Debug, LdApiError)]
 #[api_error(crate_path = "crate")]

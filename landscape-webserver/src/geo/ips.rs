@@ -1,7 +1,7 @@
 use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
 use landscape_common::config::ConfigId;
-use landscape_common::geo::{
+use landscape_common::config_service::geo::{
     GeoFileCacheKey, GeoIpConfig, GeoIpError, GeoIpSourceConfig, QueryGeoIpConfig, QueryGeoKey,
 };
 use landscape_common::service::controller::ConfigController;

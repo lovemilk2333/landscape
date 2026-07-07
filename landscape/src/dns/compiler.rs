@@ -138,6 +138,9 @@ mod tests {
     use std::collections::HashSet;
     use std::net::{IpAddr, Ipv4Addr};
 
+    use landscape_common::config_service::geo::{
+        GeoSiteDirectItem, GeoSiteFileConfig, GeoSiteSource, GeoSiteSourceConfig,
+    };
     use landscape_common::dns::config::DnsUpstreamConfig;
     use landscape_common::dns::redirect::{
         DNSRedirectRule, DnsRedirectAnswerMode, DynamicDnsMatch, DynamicDnsRedirectBatch,
@@ -146,9 +149,6 @@ mod tests {
     use landscape_common::dns::rule::{DNSRuleConfig, DomainConfig, DomainMatchType, RuleSource};
     use landscape_common::dns::upstream::DnsUpstreamMode;
     use landscape_common::dns::{CacheRuntimeConfig, DohRuntimeConfig};
-    use landscape_common::geo::{
-        GeoSiteDirectItem, GeoSiteFileConfig, GeoSiteSource, GeoSiteSourceConfig,
-    };
     use landscape_common::service::controller::ConfigController;
     use landscape_database::provider::LandscapeDBServiceProvider;
     use tokio::sync::mpsc;
@@ -296,7 +296,7 @@ mod tests {
 
         let compiler = FlowDnsCompiler::new(geo_service.clone());
         let upstream = test_upstream();
-        let geo_source = RuleSource::GeoKey(landscape_common::geo::GeoConfigKey {
+        let geo_source = RuleSource::GeoKey(landscape_common::config_service::geo::GeoConfigKey {
             name: "shared".into(),
             key: "CN".into(),
             inverse: false,

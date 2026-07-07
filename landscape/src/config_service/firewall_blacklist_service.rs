@@ -1,8 +1,8 @@
 use landscape_common::{
     event::dns::DstIpEvent,
-    firewall::blacklist::{FirewallBlacklistConfig, FirewallBlacklistSource},
     ip_mark::IpConfig,
     service::controller::ConfigController,
+    wan_service::firewall::blacklist::{FirewallBlacklistConfig, FirewallBlacklistSource},
 };
 use landscape_database::{
     firewall_blacklist::repository::FirewallBlacklistRepository,

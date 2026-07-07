@@ -107,10 +107,10 @@ impl Modify for SecurityAddon {
         (name = "Gateway", description = "HTTP/HTTPS reverse proxy gateway"),
     ),
     components(schemas(
-        landscape_common::geo::GeoFileCacheKey,
-        landscape_common::geo::QueryGeoKey,
-        landscape_common::geo::GeoDomainConfig,
-        landscape_common::geo::GeoIpConfig,
+        landscape_common::config_service::geo::GeoFileCacheKey,
+        landscape_common::config_service::geo::QueryGeoKey,
+        landscape_common::config_service::geo::GeoDomainConfig,
+        landscape_common::config_service::geo::GeoIpConfig,
         // Auth types
         landscape_common::auth::LoginResult,
         landscape_common::auth::ChangePasswordRequest,

@@ -1,3 +1,4 @@
+pub mod firewall;
 pub mod ip_config;
 pub mod ipv6_pd;
 pub mod mss_clamp;

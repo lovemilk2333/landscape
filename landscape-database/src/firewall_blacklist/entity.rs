@@ -1,5 +1,5 @@
 use crate::repository::UpdateActiveModel;
-use landscape_common::firewall::blacklist::FirewallBlacklistConfig;
+use landscape_common::wan_service::firewall::blacklist::FirewallBlacklistConfig;
 use sea_orm::{entity::prelude::*, ActiveValue::Set};
 use serde::{Deserialize, Serialize};
 

@@ -16,10 +16,8 @@ pub mod dhcp;
 pub mod docker;
 pub mod error;
 pub mod event;
-pub mod firewall;
 pub mod flow;
 
-pub mod geo;
 pub mod global_const;
 
 pub mod info;

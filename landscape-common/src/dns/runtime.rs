@@ -4,13 +4,13 @@ use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::config_service::geo::GeoFileCacheKey;
 use crate::dns::config::{DnsBindConfig, DnsUpstreamConfig};
 use crate::dns::redirect::DNSRedirectRuntimeRule;
 use crate::dns::redirect::DnsRedirectAnswerMode;
 use crate::dns::rule::{DNSRuntimeRule, DomainConfig, FilterResult};
 use crate::dns::upstream::DnsUpstreamMode;
 use crate::flow::mark::FlowMark;
-use crate::geo::GeoFileCacheKey;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]

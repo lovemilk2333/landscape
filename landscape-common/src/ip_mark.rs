@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use landscape_macro::LdApiError;
 
 use crate::config::ConfigId;
-use crate::geo::GeoConfigKey;
+use crate::config_service::geo::GeoConfigKey;
 use crate::utils::id::gen_database_uuid;
 use crate::utils::time::get_f64_timestamp;
 use crate::{database::repository::LandscapeDBStore, flow::mark::FlowMark};

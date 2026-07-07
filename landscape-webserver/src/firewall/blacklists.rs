@@ -1,12 +1,12 @@
 use axum::extract::{Path, State};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
 use landscape_common::config::ConfigId;
-use landscape_common::firewall::blacklist::FirewallBlacklistConfig;
 use landscape_common::service::controller::ConfigController;
+use landscape_common::wan_service::firewall::blacklist::FirewallBlacklistConfig;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use landscape_common::firewall::blacklist::FirewallBlacklistError;
+use landscape_common::wan_service::firewall::blacklist::FirewallBlacklistError;
 
 use crate::api::JsonBody;
 use crate::LandscapeApp;

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use uuid::Uuid;
 
-use crate::geo::GeoFileCacheKey;
+use crate::config_service::geo::GeoFileCacheKey;
 
 #[derive(Clone, Debug)]
 pub enum DnsEvent {

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use axum::extract::{Path, State};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
-use landscape_common::firewall::service::FirewallServiceConfig;
 use landscape_common::service::controller::ControllerService;
 use landscape_common::service::{ServiceStatus, WatchService};
+use landscape_common::wan_service::firewall::service::FirewallServiceConfig;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 

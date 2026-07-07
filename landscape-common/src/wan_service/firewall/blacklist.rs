@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::config::ConfigId;
+use crate::config_service::geo::GeoConfigKey;
 use crate::database::repository::LandscapeDBStore;
-use crate::geo::GeoConfigKey;
 use crate::ip_mark::IpConfig;
 use crate::utils::id::gen_database_uuid;
 use crate::utils::time::get_f64_timestamp;

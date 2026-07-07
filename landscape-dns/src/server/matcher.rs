@@ -126,8 +126,8 @@ mod tests {
     use jemalloc_ctl::{epoch, stats};
 
     use landscape_common::{
+        config_service::geo::{GeoDomainConfig, GeoFileCacheKey},
         dns::rule::{DomainConfig, DomainMatchType},
-        geo::{GeoDomainConfig, GeoFileCacheKey},
         store::storev4::StoreFileManager,
         LANDSCAPE_GEO_CACHE_TMP_DIR,
     };

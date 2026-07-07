@@ -5,8 +5,8 @@ use std::{
 };
 
 use landscape_common::{
+    config_service::geo::{GeoIpError, GeoIpFileFormat, GeoSiteFileConfig},
     dns::rule::DomainMatchType,
-    geo::{GeoIpError, GeoIpFileFormat, GeoSiteFileConfig},
     ip_mark::IpConfig,
 };
 use protos::geo::{mod_Domain::Type, Domain, GeoIPListOwned, GeoSiteListOwned};

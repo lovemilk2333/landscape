@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+use landscape_common::config_service::geo::GeoSiteFileConfig;
 use landscape_common::dns::rule::DomainMatchType;
-use landscape_common::geo::GeoSiteFileConfig;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedAdguardRule {
