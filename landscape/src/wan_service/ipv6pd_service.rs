@@ -11,9 +11,9 @@ use landscape_common::wan_service::ipv6_pd::LDIAPrefix;
 
 use landscape_common::database::LandscapeStore;
 use landscape_common::{
-    dhcp::v6_client::config::IPV6PDServiceConfig,
     observer::IfaceObserverAction,
     service::{controller::ControllerService, manager::ServiceManager, WatchService},
+    wan_service::ipv6_pd::IPV6PDServiceConfig,
     LANDSCAPE_DEFAULE_DHCP_V6_CLIENT_PORT,
 };
 use landscape_database::{

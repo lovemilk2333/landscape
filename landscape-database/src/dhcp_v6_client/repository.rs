@@ -1,4 +1,4 @@
-use landscape_common::dhcp::v6_client::config::IPV6PDServiceConfig;
+use landscape_common::wan_service::ipv6_pd::IPV6PDServiceConfig;
 use sea_orm::DatabaseConnection;
 
 use super::entity::{

@@ -1,7 +1,7 @@
 use crate::repository::UpdateActiveModel;
 use landscape_common::{
-    dhcp::v6_client::config::{IPV6PDConfig, IPV6PDServiceConfig},
     net::MacAddr,
+    wan_service::ipv6_pd::{IPV6PDConfig, IPV6PDServiceConfig},
 };
 use sea_orm::{entity::prelude::*, ActiveValue::Set};
 use serde::{Deserialize, Serialize};
