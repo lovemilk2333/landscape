@@ -269,8 +269,12 @@ fn init_nat_xdp_unified(
 
     // Reuse TC's runtime map FDs in XDP (FD sharing, no pinning)
     crate::bpf_ctx!(
-        xdp_open.maps.nat4_dyn_map.reuse_fd(tc_skel.maps.nat4_dyn_map.as_fd()),
-        "xdp_nat reuse nat4_dyn_map fd"
+        xdp_open.maps.nat4_ingress_dyn_map.reuse_fd(tc_skel.maps.nat4_ingress_dyn_map.as_fd()),
+        "xdp_nat reuse nat4_ingress_dyn_map fd"
+    )?;
+    crate::bpf_ctx!(
+        xdp_open.maps.nat4_egress_dyn_map.reuse_fd(tc_skel.maps.nat4_egress_dyn_map.as_fd()),
+        "xdp_nat reuse nat4_egress_dyn_map fd"
     )?;
     crate::bpf_ctx!(
         xdp_open.maps.nat4_mapping_timer_v3.reuse_fd(tc_skel.maps.nat4_mapping_timer_v3.as_fd()),

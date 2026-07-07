@@ -159,6 +159,34 @@ fn assert_no_dyn_map_entry(
     assert!(result.is_none(), "expected no dyn map entry for gress={gress} l4={l4proto} port={from_port} addr={from_addr:?}");
 }
 
+fn assert_egress_dyn_map_entry(
+    map: &libbpf_rs::MapMut,
+    gress: u8,
+    l4proto: u8,
+    from_port: u16,
+    from_addr: [u8; 4],
+    expected_addr: [u8; 4],
+    expected_port: u16,
+) {
+    let val = lookup_nat4_mapping(map, gress, l4proto, from_port, from_addr)
+        .expect(&format!("egress dyn map entry should exist: gress={gress} l4={l4proto} port={from_port} addr={from_addr:?}"));
+    let addr = [val[0], val[1], val[2], val[3]];
+    let port = u16::from_be_bytes([val[4], val[5]]);
+    assert_eq!(addr, expected_addr, "nat addr mismatch");
+    assert_eq!(port, expected_port, "nat port mismatch");
+}
+
+fn assert_no_egress_dyn_map_entry(
+    map: &libbpf_rs::MapMut,
+    gress: u8,
+    l4proto: u8,
+    from_port: u16,
+    from_addr: [u8; 4],
+) {
+    let result = lookup_nat4_mapping(map, gress, l4proto, from_port, from_addr);
+    assert!(result.is_none(), "expected no egress dyn map entry for gress={gress} l4={l4proto} port={from_port} addr={from_addr:?}");
+}
+
 fn assert_wan_ip_binding(
     map: &libbpf_rs::MapMut,
     ifindex: u32,
@@ -414,8 +442,8 @@ fn xdp_nat_dynamic_egress() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         12345,
@@ -424,7 +452,7 @@ fn xdp_nat_dynamic_egress() {
         4096,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         4096,
@@ -808,8 +836,8 @@ fn xdp_nat_fragment_v4() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         22345,
@@ -818,7 +846,7 @@ fn xdp_nat_fragment_v4() {
         8192,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         8192,
@@ -954,8 +982,8 @@ fn xdp_nat_ct_dynamic_multi_pkt() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         33445,
@@ -964,7 +992,7 @@ fn xdp_nat_ct_dynamic_multi_pkt() {
         12288,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         12288,
@@ -996,6 +1024,28 @@ fn write_dyn_mapping_v4(
     let mut v = [0u8; 24];
     v[8..12].copy_from_slice(&to_addr);
     v[16..18].copy_from_slice(&to_port.to_be_bytes());
+
+    map.update(&k, &v, MapFlags::ANY).unwrap();
+}
+
+fn write_egress_dyn_mapping_v4(
+    map: &libbpf_rs::MapMut,
+    gress: u8,
+    l4proto: u8,
+    from_port: u16,
+    from_addr: [u8; 4],
+    to_addr: [u8; 4],
+    to_port: u16,
+) {
+    let mut k = [0u8; 8];
+    k[0] = gress;
+    k[1] = l4proto;
+    k[2..4].copy_from_slice(&from_port.to_be_bytes());
+    k[4..8].copy_from_slice(&from_addr);
+
+    let mut v = [0u8; 16];
+    v[0..4].copy_from_slice(&to_addr);
+    v[4..6].copy_from_slice(&to_port.to_be_bytes());
 
     map.update(&k, &v, MapFlags::ANY).unwrap();
 }
@@ -1067,8 +1117,8 @@ fn xdp_nat_fragment_ingress() {
     wan_val[0..4].copy_from_slice(&[203, 0, 113, 1]);
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
-    write_dyn_mapping_v4(
-        &nat.maps.nat4_dyn_map,
+    write_egress_dyn_mapping_v4(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         12345,
@@ -1077,7 +1127,7 @@ fn xdp_nat_fragment_ingress() {
         4097,
     );
     write_dyn_mapping_v4(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         4097,
@@ -1109,8 +1159,8 @@ fn xdp_nat_fragment_ingress() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         12345,
@@ -1119,7 +1169,7 @@ fn xdp_nat_fragment_ingress() {
         4097,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         4097,
@@ -1241,8 +1291,8 @@ fn xdp_nat_dynamic_ingress() {
     wan_val[0..4].copy_from_slice(&[203, 0, 113, 1]);
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
-    write_dyn_mapping_v4(
-        &nat.maps.nat4_dyn_map,
+    write_egress_dyn_mapping_v4(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         22222,
@@ -1251,7 +1301,7 @@ fn xdp_nat_dynamic_ingress() {
         9090,
     );
     write_dyn_mapping_v4(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         9090,
@@ -1267,8 +1317,8 @@ fn xdp_nat_dynamic_ingress() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         6,
         22222,
@@ -1277,7 +1327,7 @@ fn xdp_nat_dynamic_ingress() {
         9090,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         6,
         9090,
@@ -1351,8 +1401,8 @@ fn xdp_nat_udp_egress() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         17,
         22345,
@@ -1361,7 +1411,7 @@ fn xdp_nat_udp_egress() {
         20480,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         17,
         20480,
@@ -1415,8 +1465,8 @@ fn xdp_nat_udp_ingress() {
     wan_val[0..4].copy_from_slice(&[203, 0, 113, 1]);
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
-    write_dyn_mapping_v4(
-        &nat.maps.nat4_dyn_map,
+    write_egress_dyn_mapping_v4(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         17,
         33445,
@@ -1425,7 +1475,7 @@ fn xdp_nat_udp_ingress() {
         9091,
     );
     write_dyn_mapping_v4(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         17,
         9091,
@@ -1441,8 +1491,8 @@ fn xdp_nat_udp_ingress() {
     }
     thread::sleep(Duration::from_millis(500));
 
-    assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+    assert_egress_dyn_map_entry(
+        &nat.maps.nat4_egress_dyn_map,
         1,
         17,
         33445,
@@ -1451,7 +1501,7 @@ fn xdp_nat_udp_ingress() {
         9091,
     );
     assert_dyn_map_entry(
-        &nat.maps.nat4_dyn_map,
+        &nat.maps.nat4_ingress_dyn_map,
         0,
         17,
         9091,
@@ -1522,7 +1572,7 @@ fn xdp_nat_fragment_middle() {
     }
     thread::sleep(Duration::from_millis(300));
 
-    assert_no_dyn_map_entry(&nat.maps.nat4_dyn_map, 1, 6, 22348, [10, 0, 0, 8]);
+    assert_no_egress_dyn_map_entry(&nat.maps.nat4_egress_dyn_map, 1, 6, 22348, [10, 0, 0, 8]);
 
     drop(nat);
     drop(dummy);

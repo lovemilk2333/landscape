@@ -89,10 +89,12 @@ int nat_v4_timer_step_test(struct __sk_buff *skb) {
         .from_port = client_port,
     };
 
-    result->ingress_mapping_exists = bpf_map_lookup_elem(&nat4_dyn_map, &ingress_key) ? 1 : 0;
-    result->egress_mapping_exists = bpf_map_lookup_elem(&nat4_dyn_map, &egress_key) ? 1 : 0;
+    result->ingress_mapping_exists =
+        bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key) ? 1 : 0;
+    result->egress_mapping_exists = bpf_map_lookup_elem(&nat4_egress_dyn_map, &egress_key) ? 1 : 0;
 
-    struct nat4_mapping_value_v3 *ingress_value = bpf_map_lookup_elem(&nat4_dyn_map, &ingress_key);
+    struct nat4_mapping_value_v3 *ingress_value =
+        bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
     result->state_exists = ingress_value ? 1 : 0;
     if (ingress_value) {
         result->state_ref = ingress_value->state_ref;

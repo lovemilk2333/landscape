@@ -11,6 +11,15 @@
 #define NAT4_V3_TIMER_SIZE NAT_MAPPING_TIMER_SIZE
 #define NAT4_V3_PORT_QUEUE_SIZE 65536
 
+struct nat4_egress_mapping_value_v3 {
+    __be32 addr;
+    __be16 port;
+    __be16 trigger_port;
+    __be32 trigger_addr;
+    u8 is_allow_reuse;
+    u8 _pad[3];
+};
+
 struct nat4_port_queue_value_v3 {
     __be16 port;
     u16 last_generation;
@@ -41,7 +50,14 @@ struct {
     __type(key, struct nat_mapping_key_v4);
     __type(value, struct nat4_mapping_value_v3);
     __uint(max_entries, NAT_MAPPING_CACHE_SIZE);
-} nat4_dyn_map SEC(".maps");
+} nat4_ingress_dyn_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct nat_mapping_key_v4);
+    __type(value, struct nat4_egress_mapping_value_v3);
+    __uint(max_entries, NAT_MAPPING_CACHE_SIZE);
+} nat4_egress_dyn_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);

@@ -97,17 +97,13 @@ fn egress_key() -> types::nat_mapping_key_v4 {
     }
 }
 
-fn mapping_pair() -> (types::nat4_mapping_value_v3, types::nat4_mapping_value_v3) {
-    let egress = types::nat4_mapping_value_v3 {
-        state_ref: 0,
-        addr: WAN_IP.to_bits().to_be(),
-        trigger_addr: REMOTE_IP.to_bits().to_be(),
-        port: NAT_PORT.to_be(),
-        trigger_port: 443u16.to_be(),
-        generation: 0,
-        _pad: 0,
-        is_allow_reuse: 1,
-    };
+fn mapping_pair() -> (types::nat4_egress_mapping_value_v3, types::nat4_mapping_value_v3) {
+    let mut egress = types::nat4_egress_mapping_value_v3::default();
+    egress.addr = WAN_IP.to_bits().to_be();
+    egress.trigger_addr = REMOTE_IP.to_bits().to_be();
+    egress.port = NAT_PORT.to_be();
+    egress.trigger_port = 443u16.to_be();
+    egress.is_allow_reuse = 1;
     let ingress = types::nat4_mapping_value_v3 {
         state_ref: state_ref(STATE_ACTIVE, 1),
         addr: LAN_HOST.to_bits().to_be(),
@@ -121,7 +117,7 @@ fn mapping_pair() -> (types::nat4_mapping_value_v3, types::nat4_mapping_value_v3
     (egress, ingress)
 }
 
-fn lookup_mapping<T: MapCore>(
+fn lookup_ingress_mapping<T: MapCore>(
     map: &T,
     key: &types::nat_mapping_key_v4,
 ) -> Option<types::nat4_mapping_value_v3> {
@@ -130,15 +126,24 @@ fn lookup_mapping<T: MapCore>(
         .map(|bytes| read_unaligned::<types::nat4_mapping_value_v3>(&bytes))
 }
 
-fn put_mapping_pair<T: MapCore>(map: &T) {
+fn lookup_egress_mapping<T: MapCore>(
+    map: &T,
+    key: &types::nat_mapping_key_v4,
+) -> Option<types::nat4_egress_mapping_value_v3> {
+    map.lookup(as_bytes(key), MapFlags::ANY)
+        .unwrap()
+        .map(|bytes| read_unaligned::<types::nat4_egress_mapping_value_v3>(&bytes))
+}
+
+fn put_mapping_pair<M1: MapCore, M2: MapCore>(ingress_map: &M1, egress_map: &M2) {
     let (egress, ingress) = mapping_pair();
-    map.update(as_bytes(&egress_key()), as_bytes(&egress), MapFlags::ANY).unwrap();
-    map.update(as_bytes(&ingress_key()), as_bytes(&ingress), MapFlags::ANY).unwrap();
+    egress_map.update(as_bytes(&egress_key()), as_bytes(&egress), MapFlags::ANY).unwrap();
+    ingress_map.update(as_bytes(&ingress_key()), as_bytes(&ingress), MapFlags::ANY).unwrap();
 }
 
 fn put_state<T: MapCore>(map: &T, generation: u16, state_ref_: u64) {
     let key = ingress_key();
-    let mut value = lookup_mapping(map, &key).expect("missing ingress mapping");
+    let mut value = lookup_ingress_mapping(map, &key).expect("missing ingress mapping");
     value.generation = generation;
     value.state_ref = state_ref_;
     map.update(as_bytes(&key), as_bytes(&value), MapFlags::ANY).unwrap();
@@ -146,7 +151,7 @@ fn put_state<T: MapCore>(map: &T, generation: u16, state_ref_: u64) {
 
 fn set_egress_target<T: MapCore>(map: &T, nat_port: u16) {
     let key = egress_key();
-    let mut value = lookup_mapping(map, &key).expect("missing egress mapping");
+    let mut value = lookup_egress_mapping(map, &key).expect("missing egress mapping");
     value.addr = WAN_IP.to_bits().to_be();
     value.port = nat_port.to_be();
     map.update(as_bytes(&key), as_bytes(&value), MapFlags::ANY).unwrap();
@@ -235,8 +240,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION + 1, state_ref(STATE_ACTIVE, 1));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION + 1, state_ref(STATE_ACTIVE, 1));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_RELEASE, GENERATION);
 
         let result = run_step(&skel, false);
@@ -259,8 +264,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 2));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 2));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_RELEASE, GENERATION);
 
         let result = run_step(&skel, false);
@@ -282,8 +287,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 1));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 1));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_TIMEOUT_2, GENERATION);
 
         let result = run_step(&skel, false);
@@ -396,8 +401,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 1));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 1));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_RELEASE, GENERATION);
 
         let result = run_step(&skel, false);
@@ -419,8 +424,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_CLOSED, 1));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_CLOSED, 1));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_DELETE_EGRESS, GENERATION);
 
         let result = run_step(&skel, false);
@@ -443,9 +448,9 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_CLOSED, 1));
-        set_egress_target(&skel.maps.nat4_dyn_map, ALT_NAT_PORT);
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_CLOSED, 1));
+        set_egress_target(&skel.maps.nat4_egress_dyn_map, ALT_NAT_PORT);
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_DELETE_EGRESS, GENERATION);
 
         let result = run_step(&skel, false);
@@ -455,8 +460,8 @@ mod tests {
         assert_eq!(u64::from(result.status), TIMER_DELETE_INGRESS);
         assert_eq!(result.next_timeout, DELETE_RETRY_INTERVAL);
         assert_eq!(result.egress_mapping_exists, 1);
-        let egress =
-            lookup_mapping(&skel.maps.nat4_dyn_map, &egress_key()).expect("egress mapping");
+        let egress = lookup_egress_mapping(&skel.maps.nat4_egress_dyn_map, &egress_key())
+            .expect("egress mapping");
         assert_eq!(u16::from_be(egress.port), ALT_NAT_PORT);
     }
 
@@ -469,9 +474,9 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_CLOSED, 1));
-        delete_mapping(&skel.maps.nat4_dyn_map, &egress_key());
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_CLOSED, 1));
+        delete_mapping(&skel.maps.nat4_egress_dyn_map, &egress_key());
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_DELETE_INGRESS, GENERATION);
 
         let result = run_step(&skel, false);
@@ -494,9 +499,9 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION + 1, state_ref(STATE_CLOSED, 1));
-        delete_mapping(&skel.maps.nat4_dyn_map, &egress_key());
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION + 1, state_ref(STATE_CLOSED, 1));
+        delete_mapping(&skel.maps.nat4_egress_dyn_map, &egress_key());
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_DELETE_INGRESS, GENERATION);
 
         let result = run_step(&skel, false);
@@ -544,8 +549,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 1));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 1));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_RELEASE, GENERATION);
 
         let release = run_step(&skel, false);
@@ -574,8 +579,8 @@ mod tests {
         let mut open_object = MaybeUninit::uninit();
         let open = builder.open(&mut open_object).unwrap();
         let skel = open.load().unwrap();
-        put_mapping_pair(&skel.maps.nat4_dyn_map);
-        put_state(&skel.maps.nat4_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 0));
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+        put_state(&skel.maps.nat4_ingress_dyn_map, GENERATION, state_ref(STATE_ACTIVE, 0));
         put_timer(&skel.maps.nat4_mapping_timer_v3, TIMER_PENDING_REF, GENERATION);
 
         let result = run_step(&skel, false);

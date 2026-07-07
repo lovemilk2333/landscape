@@ -388,7 +388,8 @@ static __always_inline int xdp_nat4_dyn_egress_lookup_and_check(
         .from_addr = pkt_ip_pair->src_addr.addr,
     };
 
-    struct nat4_mapping_value_v3 *egress_value = bpf_map_lookup_elem(&nat4_dyn_map, &egress_key);
+    struct nat4_egress_mapping_value_v3 *egress_value =
+        bpf_map_lookup_elem(&nat4_egress_dyn_map, &egress_key);
 
     if (egress_value) {
         struct nat_mapping_key_v4 ingress_key = {
@@ -398,10 +399,10 @@ static __always_inline int xdp_nat4_dyn_egress_lookup_and_check(
             .from_port = egress_value->port,
         };
         struct nat4_mapping_value_v3 *ingress_value =
-            bpf_map_lookup_elem(&nat4_dyn_map, &ingress_key);
+            bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
         if (!ingress_value || ingress_value->addr != pkt_ip_pair->src_addr.addr ||
             ingress_value->port != pkt_ip_pair->src_port) {
-            bpf_map_delete_elem(&nat4_dyn_map, &egress_key);
+            bpf_map_delete_elem(&nat4_egress_dyn_map, &egress_key);
         } else {
             result->nat_addr = egress_value->addr;
             result->nat_port = egress_value->port;
@@ -433,19 +434,16 @@ static __always_inline int xdp_nat4_dyn_egress_lookup_and_check(
     if (nat4_v3_alloc_port(ip_protocol, alloc_item) != 0) return -1;
 
     u16 generation = alloc_item->last_generation + 1;
-    struct nat4_mapping_value_v3 new_value = {
-        .state_ref = 0,
+    struct nat4_egress_mapping_value_v3 new_value = {
         .addr = wan_info->addr.ip,
         .trigger_addr = pkt_ip_pair->dst_addr.addr,
         .port = alloc_item->port,
         .trigger_port = pkt_ip_pair->dst_port,
-        .generation = 0,
-        ._pad = 0,
         .is_allow_reuse = get_flow_allow_reuse_port(mark) ? 1 : 0,
     };
 
     struct nat4_mapping_value_v3 *ingress_value = NULL;
-    struct nat4_mapping_value_v3 *egress_out =
+    struct nat4_egress_mapping_value_v3 *egress_out =
         nat4_v3_insert_mappings_v4(&egress_key, &new_value, generation, &ingress_value);
     if (!egress_out || !ingress_value) {
         (void)nat4_v3_queue_push(ip_protocol, alloc_item);
@@ -490,7 +488,8 @@ xdp_nat4_dyn_ingress_lookup_and_check(u8 ip_protocol, const struct inet4_pair *p
         .from_addr = pkt_ip_pair->dst_addr.addr,
     };
 
-    struct nat4_mapping_value_v3 *dynamic_value = bpf_map_lookup_elem(&nat4_dyn_map, &ingress_key);
+    struct nat4_mapping_value_v3 *dynamic_value =
+        bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
     if (!dynamic_value) return -1;
 
     struct nat_mapping_key_v4 egress_key = {
@@ -499,10 +498,11 @@ xdp_nat4_dyn_ingress_lookup_and_check(u8 ip_protocol, const struct inet4_pair *p
         .from_port = dynamic_value->port,
         .from_addr = dynamic_value->addr,
     };
-    struct nat4_mapping_value_v3 *egress_value = bpf_map_lookup_elem(&nat4_dyn_map, &egress_key);
+    struct nat4_egress_mapping_value_v3 *egress_value =
+        bpf_map_lookup_elem(&nat4_egress_dyn_map, &egress_key);
     if (!egress_value || egress_value->addr != pkt_ip_pair->dst_addr.addr ||
         egress_value->port != pkt_ip_pair->dst_port) {
-        bpf_map_delete_elem(&nat4_dyn_map, &ingress_key);
+        bpf_map_delete_elem(&nat4_ingress_dyn_map, &ingress_key);
         return -1;
     }
 
