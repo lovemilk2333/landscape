@@ -20,8 +20,6 @@ pub mod flow;
 
 pub mod global_const;
 
-pub mod info;
-pub mod ip_mark;
 pub mod metric;
 pub mod network;
 
@@ -29,12 +27,10 @@ pub mod service;
 
 pub mod auth;
 pub mod cert;
-pub mod client;
 pub mod dns;
 
 pub mod database;
 pub mod net_proto;
-pub mod observer;
 pub mod pty;
 pub mod store;
 

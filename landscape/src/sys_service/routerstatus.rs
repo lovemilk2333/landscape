@@ -1,4 +1,6 @@
-use landscape_common::info::{CpuUsage, LandscapeStatus, LoadAvg, MemUsage, WatchResource};
+use landscape_common::sys_service::info::{
+    CpuUsage, LandscapeStatus, LoadAvg, MemUsage, WatchResource,
+};
 
 use std::time::Duration;
 use sysinfo::{Components, CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};

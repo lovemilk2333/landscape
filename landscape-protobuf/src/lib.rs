@@ -7,7 +7,7 @@ use std::{
 use landscape_common::{
     config_service::geo::{GeoIpError, GeoIpFileFormat, GeoSiteFileConfig},
     dns::rule::DomainMatchType,
-    ip_mark::IpConfig,
+    flow::ip_mark::IpConfig,
 };
 use protos::geo::{mod_Domain::Type, Domain, GeoIPListOwned, GeoSiteListOwned};
 
@@ -291,14 +291,14 @@ mod tests {
         let values = result.entries.get("CUSTOM").unwrap();
         assert_eq!(
             values[0],
-            landscape_common::ip_mark::IpConfig {
+            landscape_common::flow::ip_mark::IpConfig {
                 ip: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 0)),
                 prefix: 24,
             }
         );
         assert_eq!(
             values[1],
-            landscape_common::ip_mark::IpConfig {
+            landscape_common::flow::ip_mark::IpConfig {
                 ip: IpAddr::V6(Ipv6Addr::from([
                     0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 ])),

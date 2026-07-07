@@ -1,12 +1,12 @@
 use axum::extract::{Path, State};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
 use landscape_common::config::{ConfigId, FlowId};
-use landscape_common::ip_mark::WanIpRuleConfig;
+use landscape_common::flow::ip_mark::WanIpRuleConfig;
 use landscape_common::service::controller::{ConfigController, FlowConfigController};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use landscape_common::ip_mark::DstIpRuleError;
+use landscape_common::flow::ip_mark::DstIpRuleError;
 
 use crate::api::JsonBody;
 use crate::LandscapeApp;

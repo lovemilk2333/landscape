@@ -10,6 +10,7 @@ use crate::{flow::mark::FlowMark, net::MacAddr};
 use uuid::Uuid;
 
 pub mod config;
+pub mod ip_mark;
 pub mod mark;
 pub mod service;
 pub mod target;

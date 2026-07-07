@@ -2,7 +2,7 @@ use landscape_common::database::LandscapeStore;
 use landscape_common::service::manager::ServiceManager;
 use landscape_common::{
     concurrency::{spawn_task, spawn_task_with_resource, task_label},
-    observer::IfaceObserverAction,
+    event::hub::iface::IfaceObserverAction,
     service::{
         controller::ControllerService, manager::ServiceStarterTrait, ServiceStatus, WatchService,
     },

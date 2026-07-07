@@ -7,8 +7,8 @@ mod tests {
     };
 
     use landscape_common::{
+        flow::ip_mark::{IpConfig, IpMarkInfo},
         flow::mark::FlowMark,
-        ip_mark::{IpConfig, IpMarkInfo},
         sys_service::route_service::RouteTargetInfo,
     };
     use libbpf_rs::{

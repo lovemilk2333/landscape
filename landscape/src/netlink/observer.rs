@@ -1,4 +1,4 @@
-use landscape_common::{event::hub::EventHub, observer::IfaceObserverAction};
+use landscape_common::{event::hub::iface::IfaceObserverAction, event::hub::EventHub};
 use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
 use netlink_packet_route::{address::AddressMessage, RouteNetlinkMessage};
 use netlink_sys::AsyncSocket;

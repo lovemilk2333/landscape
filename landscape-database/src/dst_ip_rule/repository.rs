@@ -1,4 +1,4 @@
-use landscape_common::ip_mark::WanIpRuleConfig;
+use landscape_common::flow::ip_mark::WanIpRuleConfig;
 use sea_orm::DatabaseConnection;
 
 use super::entity::{DstIpRuleConfigActiveModel, DstIpRuleConfigEntity, DstIpRuleConfigModel};

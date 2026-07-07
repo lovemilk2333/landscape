@@ -1,6 +1,6 @@
 use tokio::sync::broadcast;
 
-use crate::observer::IfaceObserverAction;
+use super::iface::IfaceObserverAction;
 
 #[derive(Clone, Debug)]
 pub enum FrontendEvent {

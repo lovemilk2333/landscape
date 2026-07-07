@@ -1,7 +1,7 @@
 mod device;
 mod frontend_event;
 mod handle;
-mod iface;
+pub mod iface;
 mod ipv4;
 mod ipv6;
 
@@ -17,7 +17,7 @@ pub use ipv6::{
 
 use tokio::sync::{broadcast, mpsc};
 
-use crate::observer::IfaceObserverAction;
+use iface::IfaceObserverAction;
 
 const IFACE_MPSC_CAPACITY: usize = 32;
 const IFACE_BROADCAST_CAPACITY: usize = 64;

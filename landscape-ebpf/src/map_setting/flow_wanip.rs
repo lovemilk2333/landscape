@@ -1,6 +1,6 @@
 use std::os::fd::{AsFd, AsRawFd};
 
-use landscape_common::ip_mark::IpMarkInfo;
+use landscape_common::flow::ip_mark::IpMarkInfo;
 use libbpf_rs::{libbpf_sys, MapCore, MapFlags, MapHandle, MapType};
 
 use crate::{

@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::config::ConfigId;
 use crate::database::repository::LandscapeDBStore;
 use crate::dns::rule::{DomainConfig, DomainMatchType};
-use crate::ip_mark::IpConfig;
+use crate::flow::ip_mark::IpConfig;
 use crate::store::storev4::LandscapeStoreTrait;
 use crate::utils::id::gen_database_uuid;
 use crate::utils::time::get_f64_timestamp;

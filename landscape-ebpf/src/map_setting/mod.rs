@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use landscape_common::{ip_mark::IpConfig, net::MacAddr};
+use landscape_common::{flow::ip_mark::IpConfig, net::MacAddr};
 use libbpf_rs::{
     skel::{OpenSkel, SkelBuilder},
     AsRawLibbpf, MapCore, MapFlags, OpenMapMut,

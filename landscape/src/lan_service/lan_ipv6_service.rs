@@ -1,6 +1,6 @@
-use landscape_common::client::{CallerLookupMatch, CallerLookupSource};
 use landscape_common::database::LandscapeStore as LandscapeDBStore;
 use landscape_common::dhcp::v6_server::status::DHCPv6OfferInfo;
+use landscape_common::event::hub::iface::IfaceObserverAction;
 use landscape_common::event::hub::{
     EnrolledDeviceEvent, EnrolledDeviceEventReader, IAPrefixEvent, IAPrefixEventReader,
     IPv6AssignEvent, IPv6AssignEventSender, IPv6AssignInfo, IfaceEventReader,
@@ -8,11 +8,11 @@ use landscape_common::event::hub::{
 use landscape_common::lan_service::lan_ipv6::IPv6NAInfo;
 use landscape_common::lan_service::lan_ipv6::{IPv6ServiceMode, LanIPv6ServiceConfigV2};
 use landscape_common::net::MacAddr;
-use landscape_common::observer::IfaceObserverAction;
 use landscape_common::service::controller::ControllerService;
 use landscape_common::service::manager::ServiceManager;
 use landscape_common::service::manager::ServiceStarterTrait;
 use landscape_common::service::{ServiceStatus, WatchService};
+use landscape_common::sys_service::client::{CallerLookupMatch, CallerLookupSource};
 use landscape_common::wan_service::ipv6_pd::IAPrefixMap;
 use landscape_database::enrolled_device::repository::EnrolledDeviceRepository;
 use landscape_database::lan_ipv6_v2::repository::LanIPv6V2ServiceRepository;

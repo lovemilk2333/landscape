@@ -4,7 +4,7 @@ use landscape_common::{
         GeoFileCacheKey, GeoIpConfig, GeoIpError, GeoIpSource, GeoIpSourceConfig,
     },
     database::LandscapeStore,
-    ip_mark::{IpMarkInfo, WanIPRuleSource, WanIpRuleConfig},
+    flow::ip_mark::{IpMarkInfo, WanIPRuleSource, WanIpRuleConfig},
     service::controller::ConfigController,
     utils::time::{get_f64_timestamp, MILL_A_DAY},
 };
@@ -69,7 +69,7 @@ impl GeoIpService {
     pub async fn resolve_geo_key_to_ips(
         &self,
         geo_key: &landscape_common::config_service::geo::GeoConfigKey,
-    ) -> Vec<landscape_common::ip_mark::IpConfig> {
+    ) -> Vec<landscape_common::flow::ip_mark::IpConfig> {
         let mut lock = self.file_cache.lock().await;
         if let Some(geo_ip_config) = lock.get(&geo_key.get_file_cache_key()) {
             geo_ip_config.values
@@ -241,7 +241,7 @@ impl GeoIpService {
     async fn replace_cache_by_name(
         &self,
         name: &str,
-        result: HashMap<String, Vec<landscape_common::ip_mark::IpConfig>>,
+        result: HashMap<String, Vec<landscape_common::flow::ip_mark::IpConfig>>,
     ) {
         let mut file_cache_lock = self.file_cache.lock().await;
         let mut exist_keys = file_cache_lock
@@ -269,7 +269,7 @@ impl GeoIpService {
         &self,
         source: &GeoIpSource,
         bytes: impl Into<Vec<u8>>,
-    ) -> Result<HashMap<String, Vec<landscape_common::ip_mark::IpConfig>>, GeoIpError> {
+    ) -> Result<HashMap<String, Vec<landscape_common::flow::ip_mark::IpConfig>>, GeoIpError> {
         let bytes = bytes.into();
         match source {
             GeoIpSource::Url { format, txt_key, .. } => {

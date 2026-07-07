@@ -4,10 +4,10 @@ use axum::{extract::State, routing::get, Router};
 use landscape::sys_service::routerstatus::get_sys_running_status;
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
 use landscape_common::dev::{get_interface_index_by_name, LandscapeInterface};
-use landscape_common::info::{
+use landscape_common::service::ServiceConfigError;
+use landscape_common::sys_service::info::{
     LandscapeStatus, LandscapeSystemInfo, WatchResource, XdpRedirectAbleInfo, LAND_SYS_BASE_INFO,
 };
-use landscape_common::service::ServiceConfigError;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 

@@ -1,5 +1,5 @@
 use crate::repository::{FlowFilterExpr, UpdateActiveModel};
-use landscape_common::ip_mark::WanIpRuleConfig;
+use landscape_common::flow::ip_mark::WanIpRuleConfig;
 use migration::SimpleExpr;
 use sea_orm::{entity::prelude::*, ActiveValue::Set};
 use serde::{Deserialize, Serialize};

@@ -7,8 +7,8 @@ use landscape_common::LANDSCAPE_DEFAULE_DHCP_V4_CLIENT_PORT;
 use landscape_common::{
     args::LAND_HOSTNAME,
     config_service::iface::IfaceZoneType,
+    event::hub::iface::IfaceObserverAction,
     global_const::default_router::{RouteInfo, RouteType, LD_ALL_ROUTERS},
-    observer::IfaceObserverAction,
     service::{
         controller::ControllerService,
         manager::{ServiceManager, ServiceStarterTrait},

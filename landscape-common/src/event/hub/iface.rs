@@ -1,6 +1,10 @@
 use tokio::sync::{broadcast, mpsc};
 
-use crate::observer::IfaceObserverAction;
+#[derive(Debug, Clone, PartialEq)]
+pub enum IfaceObserverAction {
+    Up(String),
+    Down(String),
+}
 
 // ── Sender ────────────────────────────────────────────────────
 

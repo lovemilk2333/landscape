@@ -1,6 +1,6 @@
 use landscape_common::{
     event::dns::DstIpEvent,
-    ip_mark::IpConfig,
+    flow::ip_mark::IpConfig,
     service::controller::ConfigController,
     wan_service::firewall::blacklist::{FirewallBlacklistConfig, FirewallBlacklistSource},
 };

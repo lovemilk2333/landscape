@@ -1,6 +1,6 @@
 use landscape_common::database::LandscapeStore;
+use landscape_common::event::hub::iface::IfaceObserverAction;
 use landscape_common::event::hub::IfaceEventReader;
-use landscape_common::observer::IfaceObserverAction;
 use landscape_common::service::controller::ControllerService;
 use landscape_common::service::manager::ServiceManager;
 use landscape_common::wan_service::nat::config::{NatConfig, NatServiceConfig};

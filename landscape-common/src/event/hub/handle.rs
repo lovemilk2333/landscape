@@ -3,9 +3,9 @@ use tokio::sync::broadcast;
 use super::device::{EnrolledDeviceEvent, EnrolledDeviceEventReader};
 use super::frontend_event::{FrontendEvent, FrontendEventReader};
 use super::iface::IfaceEventReader;
+use super::iface::IfaceObserverAction;
 use super::ipv4::{IPv4AssignEvent, IPv4AssignEventReader};
 use super::ipv6::{IAPrefixEvent, IAPrefixEventReader, IPv6AssignEvent, IPv6AssignEventReader};
-use crate::observer::IfaceObserverAction;
 
 pub struct EventHubHandle {
     iface_broadcast_tx: broadcast::Sender<IfaceObserverAction>,
