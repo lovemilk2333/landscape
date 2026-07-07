@@ -6,7 +6,9 @@ use landscape_common::config::{
 };
 use landscape_common::database::LandscapeStore;
 use landscape_common::error::{LdError, LdResult};
-use landscape_common::gateway::settings::{GatewayRuntimeConfig, LandscapeGatewayConfig};
+use landscape_common::sys_service::gateway::settings::{
+    GatewayRuntimeConfig, LandscapeGatewayConfig,
+};
 use landscape_database::provider::LandscapeDBServiceProvider;
 use sha2::{Digest, Sha256};
 use std::fs::OpenOptions;

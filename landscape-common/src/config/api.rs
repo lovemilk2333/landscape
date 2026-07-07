@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::settings::{
     LandscapeDnsConfig, LandscapeMetricConfig, LandscapeTimeConfig, LandscapeUIConfig,
 };
-use crate::gateway::settings::LandscapeGatewayConfig;
+use crate::sys_service::gateway::settings::LandscapeGatewayConfig;
 
 #[derive(Serialize, Debug, Clone)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]

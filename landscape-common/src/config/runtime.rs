@@ -4,7 +4,7 @@ use crate::config::settings::{
     LandscapeConfig, LandscapeDnsConfig, LandscapeMetricConfig, LandscapeTimeConfig,
     LandscapeUIConfig, MetricMode,
 };
-use crate::gateway::settings::GatewayRuntimeConfig;
+use crate::sys_service::gateway::settings::GatewayRuntimeConfig;
 use crate::{
     DEFAULT_TIME_ENABLE, DEFAULT_TIME_SAMPLES_PER_SERVER, DEFAULT_TIME_SERVERS,
     DEFAULT_TIME_STEP_THRESHOLD_MS, DEFAULT_TIME_SYNC_INTERVAL_SECS, DEFAULT_TIME_TIMEOUT_SECS,

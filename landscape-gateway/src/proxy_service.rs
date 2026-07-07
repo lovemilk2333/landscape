@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
-use landscape_common::gateway::{
+use landscape_common::sys_service::gateway::{
     ClientIpHeaderPolicy, HttpPathGroup, HttpUpstreamConfig, HttpUpstreamMatchRule,
     HttpUpstreamRuleConfig, HttpUpstreamTarget, LoadBalanceMethod, PathRewriteMode,
     ProxyHeaderConflictMode, ProxyRequestHeader,
@@ -887,7 +887,7 @@ fn log_proxy_error(ctx: &ProxyCtx, error: &pingora::Error, response: &GatewayErr
 mod tests {
     use super::*;
 
-    use landscape_common::gateway::{
+    use landscape_common::sys_service::gateway::{
         ClientIpHeaderPolicy, HttpUpstreamConfig, ProxyHeaderConflictMode,
     };
 

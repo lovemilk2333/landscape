@@ -8,11 +8,11 @@ use landscape_common::dns::redirect::{
     DnsRedirectAnswerMode, DynamicDnsMatch, DynamicDnsRedirectBatch, DynamicDnsRedirectRecord,
     DynamicDnsRedirectScope, DEFAULT_STATIC_DNS_REDIRECT_TTL_SECS,
 };
-use landscape_common::gateway::{
+use landscape_common::service::ServiceStatus;
+use landscape_common::sys_service::gateway::{
     ClientIpHeaderPolicy, GatewayError, HttpPathGroup, HttpUpstreamConfig, HttpUpstreamMatchRule,
     HttpUpstreamRuleConfig,
 };
-use landscape_common::service::ServiceStatus;
 use serde::Serialize;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -444,7 +444,7 @@ mod tests {
     use super::*;
 
     use landscape_common::dns::redirect::{DnsRedirectAnswerMode, DynamicDnsRedirectScope};
-    use landscape_common::gateway::{
+    use landscape_common::sys_service::gateway::{
         ClientIpHeaderPolicy, HttpUpstreamConfig, HttpUpstreamTarget, LoadBalanceMethod,
         ProxyHeaderConflictMode, ProxyRequestHeader,
     };

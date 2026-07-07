@@ -2,7 +2,7 @@ use std::{net::IpAddr, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::gateway::settings::LandscapeGatewayConfig;
+use crate::sys_service::gateway::settings::LandscapeGatewayConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]

@@ -5,7 +5,7 @@ pub mod loader;
 pub mod runtime;
 pub mod settings;
 
-pub use crate::gateway::settings::LandscapeGatewayConfig;
+pub use crate::sys_service::gateway::settings::LandscapeGatewayConfig;
 pub use api::{
     GetDnsConfigResponse, GetGatewayConfigResponse, GetMetricConfigResponse, GetTimeConfigResponse,
     GetUIConfigResponse, UpdateDnsConfigRequest, UpdateGatewayConfigRequest,

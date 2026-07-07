@@ -17,11 +17,11 @@ use landscape_common::error::{LdApiErrorInfo, LdError};
 use landscape_common::firewall::blacklist::FirewallBlacklistError;
 use landscape_common::firewall::FirewallRuleError;
 use landscape_common::flow::FlowRuleError;
-use landscape_common::gateway::GatewayError;
 use landscape_common::geo::{GeoIpError, GeoSiteError};
 use landscape_common::ip_mark::DstIpRuleError;
 use landscape_common::lan_service::lan_dhcpv4::DhcpError;
 use landscape_common::service::ServiceConfigError;
+use landscape_common::sys_service::gateway::GatewayError;
 use landscape_common::wan_service::nat::error::NatServiceError;
 
 use crate::api::LandscapeApiResp;

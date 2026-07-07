@@ -18,7 +18,7 @@ pub mod error;
 pub mod event;
 pub mod firewall;
 pub mod flow;
-pub mod gateway;
+
 pub mod geo;
 pub mod global_const;
 

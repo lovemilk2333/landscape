@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use landscape_common::concurrency::{spawn_task, task_label};
-use landscape_common::gateway::{
+use landscape_common::sys_service::gateway::{
     HttpUpstreamMatchRule, HttpUpstreamRuleConfig, HttpUpstreamTarget, LoadBalanceMethod,
 };
 use tokio::io::{self, AsyncWriteExt};
@@ -320,7 +320,7 @@ mod tests {
     use arc_swap::ArcSwap;
     use std::sync::Arc;
 
-    use landscape_common::gateway::{
+    use landscape_common::sys_service::gateway::{
         ClientIpHeaderPolicy, HttpUpstreamConfig, ProxyHeaderConflictMode,
     };
 
