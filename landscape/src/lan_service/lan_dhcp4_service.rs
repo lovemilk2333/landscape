@@ -6,10 +6,10 @@ use std::time::Duration;
 
 use landscape_common::client::{CallerLookupMatch, CallerLookupSource};
 use landscape_common::database::LandscapeStore as LandscapeDBStore;
-use landscape_common::dhcp::v4_server::status::ArpScanInfo;
-use landscape_common::dhcp::v4_server::status::ArpScanStatus;
-use landscape_common::dhcp::v4_server::status::DHCPv4OfferInfo;
 use landscape_common::event::hub::IfaceEventReader;
+use landscape_common::lan_service::lan_dhcpv4::status::ArpScanInfo;
+use landscape_common::lan_service::lan_dhcpv4::status::ArpScanStatus;
+use landscape_common::lan_service::lan_dhcpv4::status::DHCPv4OfferInfo;
 use landscape_common::route::LanRouteInfo;
 use landscape_common::route::LanRouteMode;
 use landscape_common::service::controller::ControllerService;
@@ -17,7 +17,7 @@ use landscape_common::service::WatchService;
 use landscape_common::store::storev2::LandscapeStore;
 use landscape_common::LAND_ARP_SCAN_INTERVAL;
 use landscape_common::{
-    dhcp::v4_server::config::DHCPv4ServiceConfig,
+    lan_service::lan_dhcpv4::config::DHCPv4ServiceConfig,
     observer::IfaceObserverAction,
     service::manager::{ServiceManager, ServiceStarterTrait},
 };

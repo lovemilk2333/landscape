@@ -11,10 +11,6 @@ use crate::dump::udp_packet::dhcp::{
 
 use arc_swap::ArcSwap;
 use cidr::Ipv4Inet;
-use landscape_common::dhcp::v4_server::config::{
-    CustomDhcpOption, DHCPv4ServerConfig, DhcpV4DnrOptionConfig,
-};
-use landscape_common::dhcp::v4_server::status::DHCPv4OfferInfo;
 use landscape_common::dns::dnr::{
     encode_dhcpv4_dnr_payload_truncated, is_valid_dnr_ipv4_addr, normalize_advertise_domains,
     DHCPV4_DNR_OPTION_CODE,
@@ -22,6 +18,10 @@ use landscape_common::dns::dnr::{
 #[cfg(test)]
 use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::event::hub::{IPv4AssignEvent, IPv4AssignEventSender, IPv4AssignInfo};
+use landscape_common::lan_service::lan_dhcpv4::config::{
+    CustomDhcpOption, DHCPv4ServerConfig, DhcpV4DnrOptionConfig,
+};
+use landscape_common::lan_service::lan_dhcpv4::status::DHCPv4OfferInfo;
 use landscape_common::net::MacAddr;
 
 use crate::lan_service::lan_dhcp4_server::status::DhcpV4AssignStatus;
@@ -758,9 +758,11 @@ mod tests {
 
     use arc_swap::ArcSwap;
     use landscape_common::{
-        dhcp::v4_server::config::{CustomDhcpOption, DHCPv4ServerConfig, DhcpV4DnrOptionConfig},
         dns::dnr::{encode_dns_name, DHCPV4_DNR_OPTION_CODE},
         enrolled_device::EnrolledDevice,
+        lan_service::lan_dhcpv4::config::{
+            CustomDhcpOption, DHCPv4ServerConfig, DhcpV4DnrOptionConfig,
+        },
         net::MacAddr,
     };
 

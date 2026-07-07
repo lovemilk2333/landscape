@@ -60,7 +60,7 @@ use landscape_common::{
     wan_service::ipv6_pd::IAPrefixMap,
     VERSION,
 };
-use landscape_common::{config::InitConfig, dhcp::v4_server::config::DHCPv4ServiceConfig};
+use landscape_common::{config::InitConfig, lan_service::lan_dhcpv4::config::DHCPv4ServiceConfig};
 use landscape_database::provider::LandscapeDBServiceProvider;
 use landscape_database::repository::Repository;
 use tokio::runtime::Builder as RuntimeBuilder;

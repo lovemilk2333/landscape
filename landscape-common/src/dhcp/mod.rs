@@ -1,6 +1,5 @@
 use landscape_macro::LdApiError;
 
-pub mod v4_server;
 pub mod v6_client;
 pub mod v6_server;
 

@@ -152,7 +152,7 @@ impl DhcpOptionFrame {
         self.options.retain(|opt| {
             let idx = opt.get_index();
             !filter_set.contains(&idx)
-                || landscape_common::dhcp::v4_server::config::is_server_managed(idx)
+                || landscape_common::lan_service::lan_dhcpv4::config::is_server_managed(idx)
         });
         self.custom_raw_options =
             custom_opts.into_iter().filter(|(code, _)| !filter_set.contains(code)).collect();

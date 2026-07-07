@@ -38,12 +38,12 @@ impl EnrolledDeviceService {
 
     pub async fn push(&self, mut data: EnrolledDevice) -> Result<(), String> {
         // Validate custom DHCP options
-        landscape_common::dhcp::v4_server::config::validate_custom_options(
+        landscape_common::lan_service::lan_dhcpv4::config::validate_custom_options(
             &data.dhcp_custom_options,
         )
         .map_err(|e| e.to_string())?;
         // Validate filter option codes
-        landscape_common::dhcp::v4_server::config::validate_filter_options(
+        landscape_common::lan_service::lan_dhcpv4::config::validate_filter_options(
             &data.dhcp_filter_options,
         )
         .map_err(|e| e.to_string())?;

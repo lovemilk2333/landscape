@@ -4,7 +4,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use uuid::Uuid;
 
 use crate::database::repository::LandscapeDBStore;
-use crate::dhcp::v4_server::config::CustomDhcpOption;
+use crate::lan_service::lan_dhcpv4::config::CustomDhcpOption;
 use crate::net::MacAddr;
 use crate::utils::id::gen_database_uuid;
 use crate::utils::time::get_f64_timestamp;

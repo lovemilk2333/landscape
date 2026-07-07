@@ -1,4 +1,4 @@
-use landscape_common::dhcp::v4_server::config::DHCPv4ServiceConfig;
+use landscape_common::lan_service::lan_dhcpv4::config::DHCPv4ServiceConfig;
 use sea_orm::DatabaseConnection;
 
 use super::entity::{

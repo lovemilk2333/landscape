@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use axum::extract::{Path, State};
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
-use landscape_common::dhcp::v4_server::config::DHCPv4ServiceConfig;
-use landscape_common::dhcp::v4_server::status::{ArpScanInfo, DHCPv4OfferInfo};
+use landscape_common::lan_service::lan_dhcpv4::config::DHCPv4ServiceConfig;
+use landscape_common::lan_service::lan_dhcpv4::status::{ArpScanInfo, DHCPv4OfferInfo};
 use landscape_common::service::controller::ControllerService;
 use landscape_common::service::{ServiceStatus, WatchService};
 use utoipa_axum::router::OpenApiRouter;
