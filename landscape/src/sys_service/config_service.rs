@@ -429,7 +429,9 @@ impl LandscapeConfigService {
             new_config.file_config.time = new_time.clone();
             new_config
         });
-        landscape_common::utils::time::update_time_sync_config(self.config.load().time.clone());
+        landscape_common::sys_service::time_sync::update_time_sync_config(
+            self.config.load().time.clone(),
+        );
 
         Ok(())
     }

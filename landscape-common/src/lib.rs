@@ -5,8 +5,6 @@ pub use landscape_macro::LdApiError;
 
 pub mod api_response;
 pub mod args;
-pub mod sys_config;
-
 pub mod lan_services;
 
 pub mod concurrency;
@@ -45,6 +43,7 @@ pub mod pty;
 pub mod store;
 
 pub mod net;
+pub mod sys_service;
 pub mod test;
 pub mod utils;
 

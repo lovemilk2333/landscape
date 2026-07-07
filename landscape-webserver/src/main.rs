@@ -496,7 +496,7 @@ async fn run_system(
 
     // 初始化结束
     let tls_config = build_tls_server_config_with_shared_resolver(cert_service.api_tls_resolver());
-    landscape_common::sys_config::init_sysctl_setting();
+    landscape_common::utils::sysctl::init_sysctl_setting();
 
     let addr = SocketAddr::from((config.web.address, config.web.https_port));
     // spawn a second server to redirect http requests to this server
@@ -673,7 +673,7 @@ async fn async_main() -> LdResult<()> {
         panic!("init log error: {e:?}");
     }
 
-    landscape_common::utils::time::start_time_sync_service(config.time.clone());
+    landscape_common::sys_service::time_sync::start_time_sync_service(config.time.clone());
 
     let mut init_config_to_import = init_config_to_import;
     if config.auto {
