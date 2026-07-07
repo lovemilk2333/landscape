@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::error::LdError;
 use landscape_common::iface::nat::{
-    RuntimeStaticNatMappingV6Config, StaticNatMappingV6Config, StaticNatV6Target,
+    RuntimeStaticNatMappingV6Config, StaticNatError, StaticNatMappingV6Config, StaticNatV6Target,
 };
 use landscape_common::ipv6::lan::{
     LanIPv6ServiceConfigV2, LanPrefixGroupConfig, PrefixParentSource,
@@ -80,7 +80,7 @@ impl StaticNatMappingV6Repository {
     pub async fn validate_runtime_target_v6(
         &self,
         config: &StaticNatMappingV6Config,
-    ) -> Result<(), LdError> {
+    ) -> Result<(), StaticNatError> {
         let devices = self.load_devices_for_configs(std::slice::from_ref(config)).await?;
 
         if let Some(StaticNatV6Target::Device { device_ids }) = config.lan_target.as_ref() {
@@ -89,17 +89,11 @@ impl StaticNatMappingV6Repository {
                     if !device_id.is_nil() {
                         match devices.get(device_id) {
                             None => {
-                                return Err(LdError::ConfigError(format!(
-                                    "device {} referenced in static NAT v6 config does not exist",
-                                    device_id
-                                )));
+                                return Err(StaticNatError::DeviceNotFound(*device_id));
                             }
                             Some(device) => {
                                 if device.ipv6.is_none() {
-                                    return Err(LdError::ConfigError(format!(
-                                        "device {} does not have an IPv6 address",
-                                        device_id
-                                    )));
+                                    return Err(StaticNatError::DeviceMissingIpv6(*device_id));
                                 }
                             }
                         }

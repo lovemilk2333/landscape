@@ -5,8 +5,10 @@ use axum::Json;
 use landscape_common::api_response::LandscapeApiResp as CommonLandscapeApiResp;
 use landscape_common::cert::CertError;
 use landscape_common::config::InitConfigError;
+use landscape_common::ddns::DdnsError;
 use landscape_common::dhcp::DhcpError;
 use landscape_common::dns::check::DnsCheckError;
+use landscape_common::dns::provider_profile::DnsProviderProfileError;
 use landscape_common::dns::redirect::DnsRedirectError;
 use landscape_common::dns::rule::DnsRuleError;
 use landscape_common::dns::upstream::DnsUpstreamError;
@@ -38,6 +40,10 @@ pub enum LandscapeApiError {
     DnsUpstream(#[from] DnsUpstreamError),
     #[error(transparent)]
     DnsRedirect(#[from] DnsRedirectError),
+    #[error(transparent)]
+    DnsProviderProfile(#[from] DnsProviderProfileError),
+    #[error(transparent)]
+    Ddns(#[from] DdnsError),
     #[error(transparent)]
     FlowRule(#[from] FlowRuleError),
     #[error(transparent)]
@@ -86,6 +92,8 @@ impl LandscapeApiError {
             Self::DnsCheck(e) => e.error_id(),
             Self::DnsUpstream(e) => e.error_id(),
             Self::DnsRedirect(e) => e.error_id(),
+            Self::DnsProviderProfile(e) => e.error_id(),
+            Self::Ddns(e) => e.error_id(),
             Self::FlowRule(e) => e.error_id(),
             Self::FirewallRule(e) => e.error_id(),
             Self::FirewallBlacklist(e) => e.error_id(),
@@ -117,6 +125,8 @@ impl LandscapeApiError {
             Self::DnsCheck(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
             Self::DnsUpstream(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
             Self::DnsRedirect(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
+            Self::DnsProviderProfile(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
+            Self::Ddns(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
             Self::FlowRule(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
             Self::FirewallRule(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
             Self::FirewallBlacklist(e) => StatusCode::from_u16(e.http_status_code()).unwrap(),
@@ -148,6 +158,8 @@ impl LandscapeApiError {
             Self::DnsCheck(e) => e.error_args(),
             Self::DnsUpstream(e) => e.error_args(),
             Self::DnsRedirect(e) => e.error_args(),
+            Self::DnsProviderProfile(e) => e.error_args(),
+            Self::Ddns(e) => e.error_args(),
             Self::FlowRule(e) => e.error_args(),
             Self::FirewallRule(e) => e.error_args(),
             Self::FirewallBlacklist(e) => e.error_args(),

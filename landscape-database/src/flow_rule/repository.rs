@@ -4,7 +4,7 @@ use landscape_common::config::FlowId;
 use landscape_common::error::LdError;
 use landscape_common::flow::config::FlowConfig;
 use landscape_common::flow::{
-    FlowEntryMatchMode, FlowEntryRule, FlowTarget, ResolvedFlowEntryMatchMode,
+    FlowEntryMatchMode, FlowEntryRule, FlowRuleError, FlowTarget, ResolvedFlowEntryMatchMode,
     ResolvedFlowEntryRule, RuntimeFlowConfig,
 };
 use migration::Expr;
@@ -187,13 +187,13 @@ impl FlowConfigRepository {
         &self,
         exclude_id: DBId,
         modes: &[FlowEntryMatchMode],
-    ) -> Result<Option<(FlowEntryMatchMode, FlowConfig)>, LdError> {
+    ) -> Result<Option<(FlowEntryMatchMode, FlowConfig)>, FlowRuleError> {
         let configs = self.list_all().await?;
         let mut devices = self.load_devices_for_configs(&configs).await?;
         devices.extend(self.load_devices_for_modes(modes).await?);
 
         if let Some(device_id) = find_missing_device_id(modes.iter(), &devices) {
-            return Err(LdError::ConfigError(format!("flow device target {device_id} not found")));
+            return Err(FlowRuleError::DeviceNotFound(device_id));
         }
 
         for mode in modes {
@@ -220,11 +220,11 @@ impl FlowConfigRepository {
     pub async fn resolve_modes(
         &self,
         modes: &[FlowEntryMatchMode],
-    ) -> Result<Vec<(FlowEntryMatchMode, ResolvedFlowEntryMatchMode)>, LdError> {
+    ) -> Result<Vec<(FlowEntryMatchMode, ResolvedFlowEntryMatchMode)>, FlowRuleError> {
         let devices = self.load_devices_for_modes(modes).await?;
 
         if let Some(device_id) = find_missing_device_id(modes.iter(), &devices) {
-            return Err(LdError::ConfigError(format!("flow device target {device_id} not found")));
+            return Err(FlowRuleError::DeviceNotFound(device_id));
         }
 
         Ok(modes
@@ -251,11 +251,11 @@ impl FlowConfigRepository {
     pub async fn validate_modes_resolvable(
         &self,
         modes: &[FlowEntryMatchMode],
-    ) -> Result<(), LdError> {
+    ) -> Result<(), FlowRuleError> {
         let devices = self.load_devices_for_modes(modes).await?;
 
         if let Some(device_id) = find_missing_device_id(modes.iter(), &devices) {
-            return Err(LdError::ConfigError(format!("flow device target {device_id} not found")));
+            return Err(FlowRuleError::DeviceNotFound(device_id));
         }
 
         Ok(())

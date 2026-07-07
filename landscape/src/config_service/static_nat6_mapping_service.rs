@@ -4,7 +4,7 @@ use landscape_common::database::LandscapeStore;
 use landscape_common::error::LdError;
 use landscape_common::event::hub::EnrolledDeviceEventReader;
 use landscape_common::iface::nat::{
-    StaticNatMappingV6Config, StaticNatV6PortConfig, StaticNatV6Target,
+    StaticNatError, StaticNatMappingV6Config, StaticNatV6PortConfig, StaticNatV6Target,
 };
 use landscape_common::utils::time::get_f64_timestamp;
 use landscape_common::LANDSCAPE_DEFAULE_DHCP_V6_CLIENT_PORT;
@@ -93,7 +93,7 @@ impl StaticNat6MappingService {
     pub async fn validate_runtime_target(
         &self,
         config: &StaticNatMappingV6Config,
-    ) -> Result<(), LdError> {
+    ) -> Result<(), StaticNatError> {
         self.store.validate_runtime_target_v6(config).await
     }
 

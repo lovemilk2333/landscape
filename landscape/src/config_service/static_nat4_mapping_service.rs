@@ -4,7 +4,7 @@ use landscape_common::database::LandscapeStore;
 use landscape_common::error::LdError;
 use landscape_common::event::hub::EnrolledDeviceEventReader;
 use landscape_common::iface::nat::{
-    NatConfig, StaticMapPair, StaticNatMappingV4Config, StaticNatV4Target,
+    NatConfig, StaticMapPair, StaticNatError, StaticNatMappingV4Config, StaticNatV4Target,
 };
 use landscape_common::utils::time::get_f64_timestamp;
 use landscape_common::LANDSCAPE_DEFAULE_DHCP_V4_CLIENT_PORT;
@@ -96,21 +96,31 @@ impl StaticNat4MappingService {
     pub async fn validate_runtime_target(
         &self,
         config: &StaticNatMappingV4Config,
-    ) -> Result<(), LdError> {
+    ) -> Result<(), StaticNatError> {
         self.store.validate_runtime_target_v4(config).await
     }
 
-    pub async fn check_dynamic_range_overlap(&self, nat_config: &NatConfig) -> Result<(), LdError> {
+    pub async fn check_dynamic_range_overlap(
+        &self,
+        nat_config: &NatConfig,
+    ) -> Result<(), StaticNatError> {
+        let mappings = self.store.list().await.map_err(|e| StaticNatError::Internal(e))?;
         for (proto, range) in [(6u8, &nat_config.tcp_range), (17u8, &nat_config.udp_range)] {
-            if self
-                .nat_store
-                .has_static_port_in_dynamic_range(proto, range.start, range.end)
-                .await?
-            {
-                return Err(LdError::ConfigError(format!(
-                    "existing static NAT mapping conflicts with dynamic port range {}-{}",
-                    range.start, range.end,
-                )));
+            for mapping in &mappings {
+                if !mapping.enable || !mapping.l4_protocols.contains(&proto) {
+                    continue;
+                }
+                for pair in &mapping.mapping_pair_ports {
+                    if pair.wan_port >= range.start && pair.wan_port <= range.end {
+                        return Err(StaticNatError::PortInDynamicRange {
+                            mapping_id: mapping.id,
+                            port: pair.wan_port,
+                            protocol: proto,
+                            start: range.start,
+                            end: range.end,
+                        });
+                    }
+                }
             }
         }
         Ok(())
@@ -119,15 +129,31 @@ impl StaticNat4MappingService {
     pub async fn validate_no_dynamic_port_conflict(
         &self,
         config: &StaticNatMappingV4Config,
-    ) -> Result<(), LdError> {
+    ) -> Result<(), StaticNatError> {
         if !config.enable || config.mapping_pair_ports.is_empty() || config.l4_protocols.is_empty()
         {
             return Ok(());
         }
-        if self.store.has_dynamic_port_conflict(config).await? {
-            return Err(LdError::ConfigError(
-                "static NAT wan_port conflicts with dynamic NAT port range".to_string(),
-            ));
+        let Some(nat_config) = self.nat_store.find_active_nat_config().await? else {
+            return Ok(());
+        };
+        for proto in &config.l4_protocols {
+            let range = match *proto {
+                6 => &nat_config.nat_config.tcp_range,
+                17 => &nat_config.nat_config.udp_range,
+                _ => continue,
+            };
+            for pair in &config.mapping_pair_ports {
+                if pair.wan_port >= range.start && pair.wan_port <= range.end {
+                    return Err(StaticNatError::PortConflict {
+                        port: pair.wan_port,
+                        iface_name: nat_config.iface_name.clone(),
+                        protocol: *proto,
+                        start: range.start,
+                        end: range.end,
+                    });
+                }
+            }
         }
         Ok(())
     }

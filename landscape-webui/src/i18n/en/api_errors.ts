@@ -8,10 +8,6 @@ export default {
   "dns_rule.not_found": "DNS rule not found (ID: {0})",
   "dns_upstream.not_found": "DNS upstream config not found (ID: {0})",
   "dns_redirect.not_found": "DNS redirect rule not found (ID: {0})",
-  "flow_rule.not_found": "Flow rule not found (ID: {0})",
-  "flow_rule.duplicate_entry": "Duplicate entry match rule: {0}",
-  "flow_rule.conflict_entry":
-    "Entry rule '{rule}' conflicts with flow '{flow_remark}' (ID: {flow_id})",
   "firewall_rule.not_found": "Firewall rule not found (ID: {0})",
   "firewall_blacklist.not_found": "Firewall blacklist not found (ID: {0})",
   "dhcp.config_not_found": "DHCP service config for '{0}' not found",
@@ -27,7 +23,6 @@ export default {
   "geo_ip.config_not_found": "GeoIP config not found ({0})",
   "geo_ip.dat_decode_error": "GeoIP DAT file decode error",
   "geo_ip.no_valid_cidr": "GeoIP TXT file contains no valid CIDR entries",
-  "static_nat.not_found": "Static NAT mapping not found (ID: {0})",
   "dst_ip_rule.not_found": "Destination IP rule not found (ID: {0})",
   "enrolled_device.invalid": "Invalid enrolled device data: {0}",
   "service.config_not_found": "{service_name} service config not found",

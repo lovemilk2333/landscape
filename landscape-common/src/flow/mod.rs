@@ -4,6 +4,7 @@ use landscape_macro::LdApiError;
 use serde::{Deserialize, Serialize};
 
 use crate::config::ConfigId;
+use crate::error::LdError;
 use crate::service::ServiceConfigError;
 use crate::{flow::mark::FlowMark, net::MacAddr};
 use uuid::Uuid;
@@ -35,6 +36,14 @@ pub enum FlowRuleError {
     #[error("Flow rule cannot have more than 16 targets (load balancing uses 16 slots)")]
     #[api_error(id = "flow_rule.too_many_targets", status = 400)]
     TooManyTargets,
+
+    #[error("Flow device target '{0}' not found")]
+    #[api_error(id = "flow_rule.device_not_found", status = 404)]
+    DeviceNotFound(ConfigId),
+
+    #[error(transparent)]
+    #[api_error(id = "flow_rule.internal", status = 500)]
+    Internal(#[from] LdError),
 }
 
 /// Flow 入口匹配规则

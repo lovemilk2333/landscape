@@ -5,6 +5,10 @@ import config from "./config";
 import not_found from "./not_found";
 import errors from "./api_errors";
 import dockerErrors from "./error/docker";
+import staticNatErrors from "./static_nat/error";
+import ddnsErrors from "./ddns/error";
+import dnsProviderProfileErrors from "./dns_provider_profile/error";
+import flowRuleErrors from "./flow_rule/error";
 import enrolled_device from "./enrolled_device";
 import lan_ipv6 from "./lan_ipv6";
 import flow from "./flow";
@@ -31,6 +35,10 @@ export default {
   errors: {
     ...errors,
     ...dockerErrors,
+    ...staticNatErrors,
+    ...ddnsErrors,
+    ...dnsProviderProfileErrors,
+    ...flowRuleErrors,
   },
   enrolled_device,
   lan_ipv6,

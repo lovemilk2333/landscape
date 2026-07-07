@@ -8,10 +8,6 @@ export default {
   "dns_rule.not_found": "找不到 DNS 规则 (ID: {0})",
   "dns_upstream.not_found": "找不到 DNS 上游配置 (ID: {0})",
   "dns_redirect.not_found": "找不到 DNS 重定向规则 (ID: {0})",
-  "flow_rule.not_found": "找不到流规则 (ID: {0})",
-  "flow_rule.duplicate_entry": "入口匹配规则存在重复项: {0}",
-  "flow_rule.conflict_entry":
-    "入口规则 '{rule}' 与流 '{flow_remark}' (ID: {flow_id}) 冲突",
   "firewall_rule.not_found": "找不到防火墙规则 (ID: {0})",
   "firewall_blacklist.not_found": "找不到防火墙黑名单 (ID: {0})",
   "dhcp.config_not_found": "找不到 '{0}' 的 DHCP 服务配置",
@@ -27,7 +23,6 @@ export default {
   "geo_ip.config_not_found": "找不到 GeoIP 配置 ({0})",
   "geo_ip.dat_decode_error": "GeoIP DAT 文件解析错误",
   "geo_ip.no_valid_cidr": "GeoIP TXT 文件中没有合法的 CIDR 条目",
-  "static_nat.not_found": "找不到静态 NAT 映射 (ID: {0})",
   "dst_ip_rule.not_found": "找不到目标 IP 规则 (ID: {0})",
   "enrolled_device.invalid": "设备数据无效: {0}",
   "service.config_not_found": "找不到 {service_name} 服务配置",

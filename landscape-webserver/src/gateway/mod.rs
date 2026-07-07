@@ -71,11 +71,7 @@ async fn create_gateway_rule(
     ensure_gateway_supported(&state)?;
     validate_gateway_rule(&state, &config).await?;
 
-    let saved = state
-        .gateway_service
-        .save_rule(config)
-        .await
-        .map_err(|e| landscape_common::error::LdError::ConfigError(e.to_string()))?;
+    let saved = state.gateway_service.save_rule(config).await?;
 
     sync_gateway_dynamic_dns_redirects(&state).await;
     reload_gateway_rules(&state).await;
@@ -98,11 +94,7 @@ async fn get_gateway_rule(
     Path(id): Path<ConfigId>,
 ) -> LandscapeApiResult<HttpUpstreamRuleConfig> {
     ensure_gateway_supported(&state)?;
-    let result = state
-        .gateway_service
-        .find_rule(id)
-        .await
-        .map_err(|e| landscape_common::error::LdError::ConfigError(e.to_string()))?;
+    let result = state.gateway_service.find_rule(id).await?;
     if let Some(config) = result {
         LandscapeApiResp::success(config)
     } else {
@@ -125,11 +117,7 @@ async fn delete_gateway_rule(
     Path(id): Path<ConfigId>,
 ) -> LandscapeApiResult<()> {
     ensure_gateway_supported(&state)?;
-    state
-        .gateway_service
-        .delete_rule(id)
-        .await
-        .map_err(|e| landscape_common::error::LdError::ConfigError(e.to_string()))?;
+    state.gateway_service.delete_rule(id).await?;
 
     sync_gateway_dynamic_dns_redirects(&state).await;
     reload_gateway_rules(&state).await;

@@ -3,8 +3,8 @@ use landscape_common::{
     database::LandscapeStore,
     dns::provider_profile::{
         DnsProviderCredentialCheckRequest, DnsProviderCredentialCheckResult, DnsProviderProfile,
+        DnsProviderProfileError,
     },
-    error::LdError,
     service::controller::ConfigController,
 };
 use landscape_database::{
@@ -35,44 +35,37 @@ impl DnsProviderProfileService {
     pub async fn checked_set_profile(
         &self,
         config: DnsProviderProfile,
-    ) -> Result<DnsProviderProfile, LdError> {
-        config.validate().map_err(LdError::ConfigError)?;
+    ) -> Result<DnsProviderProfile, DnsProviderProfileError> {
+        config.validate().map_err(DnsProviderProfileError::Invalid)?;
         if matches!(config.provider_config, DnsProviderConfig::Manual) {
-            return Err(LdError::ConfigError(
-                "manual DNS provider cannot be used as a reusable DNS provider profile".to_string(),
-            ));
+            return Err(DnsProviderProfileError::ManualNotAllowed);
         }
         if let Some(existing) = self.store.find_by_name(&config.name).await? {
             if existing.id != config.id {
-                return Err(LdError::ConfigError(format!(
-                    "DNS provider profile name '{}' already exists",
-                    config.name
-                )));
+                return Err(DnsProviderProfileError::NameConflict(config.name.clone()));
             }
         }
-        self.checked_set(config).await
+        Ok(self.checked_set(config).await?)
     }
 
     pub async fn validate_credentials(
         &self,
         request: DnsProviderCredentialCheckRequest,
-    ) -> Result<DnsProviderCredentialCheckResult, LdError> {
+    ) -> Result<DnsProviderCredentialCheckResult, DnsProviderProfileError> {
         if matches!(&request.provider_config, DnsProviderConfig::Manual) {
-            return Err(LdError::ConfigError(
-                "manual DNS provider cannot be used as a reusable DNS provider profile".to_string(),
-            ));
+            return Err(DnsProviderProfileError::ManualNotAllowed);
         }
 
         dns_provider::validate_provider_credentials(&request.provider_config)
             .await
-            .map_err(|e| LdError::ConfigError(e.to_string()))?;
+            .map_err(|e| DnsProviderProfileError::CredentialError(e.to_string()))?;
 
         Ok(DnsProviderCredentialCheckResult {
             message: "DNS provider credentials validated successfully".to_string(),
         })
     }
 
-    pub async fn delete_profile(&self, id: Uuid) -> Result<(), LdError> {
+    pub async fn delete_profile(&self, id: Uuid) -> Result<(), DnsProviderProfileError> {
         let ddns_refs: Vec<String> = self
             .ddns_store
             .list()
@@ -82,10 +75,7 @@ impl DnsProviderProfileService {
             .map(|job| job.name)
             .collect();
         if !ddns_refs.is_empty() {
-            return Err(LdError::ConfigError(format!(
-                "DNS provider profile is still used by DDNS jobs: {}",
-                ddns_refs.join(", ")
-            )));
+            return Err(DnsProviderProfileError::InUseByDdns(ddns_refs.join(", ")));
         }
 
         let cert_refs: Vec<String> = self
@@ -106,10 +96,7 @@ impl DnsProviderProfileService {
             .map(|cert| cert.name)
             .collect();
         if !cert_refs.is_empty() {
-            return Err(LdError::ConfigError(format!(
-                "DNS provider profile is still used by certificates: {}",
-                cert_refs.join(", ")
-            )));
+            return Err(DnsProviderProfileError::InUseByCerts(cert_refs.join(", ")));
         }
 
         self.delete(id).await;

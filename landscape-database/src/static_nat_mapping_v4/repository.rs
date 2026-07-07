@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::error::LdError;
 use landscape_common::iface::nat::{
-    RuntimeStaticNatMappingV4Config, StaticNatMappingV4Config, StaticNatV4Target,
+    RuntimeStaticNatMappingV4Config, StaticNatError, StaticNatMappingV4Config, StaticNatV4Target,
 };
 use migration::Expr;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Value};
@@ -60,12 +60,12 @@ impl StaticNatMappingV4Repository {
     pub async fn validate_runtime_target_v4(
         &self,
         config: &StaticNatMappingV4Config,
-    ) -> Result<(), LdError> {
+    ) -> Result<(), StaticNatError> {
         let devices = self.load_devices_for_configs(std::slice::from_ref(config)).await?;
         let lan_ipv4 = resolve_static_nat_v4_target(config, &devices);
 
         if config.enable && !config.l4_protocols.is_empty() && lan_ipv4.is_none() {
-            return Err(LdError::ConfigError(
+            return Err(StaticNatError::InvalidTarget(
                 "enabled IPv4 static NAT mapping must resolve to an IPv4 target".to_string(),
             ));
         }
@@ -76,11 +76,11 @@ impl StaticNatMappingV4Repository {
     pub async fn has_dynamic_port_conflict(
         &self,
         config: &StaticNatMappingV4Config,
-    ) -> Result<bool, LdError> {
+    ) -> Result<bool, StaticNatError> {
         let l4_json = serde_json::to_string(&config.l4_protocols)
-            .map_err(|e| LdError::ConfigError(e.to_string()))?;
+            .map_err(|e| StaticNatError::Internal(LdError::ConfigError(e.to_string())))?;
         let ports_json = serde_json::to_string(&config.mapping_pair_ports)
-            .map_err(|e| LdError::ConfigError(e.to_string()))?;
+            .map_err(|e| StaticNatError::Internal(LdError::ConfigError(e.to_string())))?;
 
         let expr = Expr::cust_with_values(
             "EXISTS (
@@ -98,7 +98,8 @@ impl StaticNatMappingV4Repository {
             .filter(NatCol::Enable.eq(true))
             .filter(expr)
             .one(&self.db)
-            .await?;
+            .await
+            .map_err(LdError::from)?;
         Ok(res.is_some())
     }
 }

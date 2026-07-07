@@ -3,7 +3,9 @@ use landscape_common::iface::nat::NatServiceConfig;
 use migration::Expr;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Value};
 
-use super::entity::{NatServiceConfigActiveModel, NatServiceConfigEntity, NatServiceConfigModel};
+use super::entity::{
+    Column as NatCol, NatServiceConfigActiveModel, NatServiceConfigEntity, NatServiceConfigModel,
+};
 use crate::static_nat_mapping_v4::entity::{Column as StCol, StaticNatMappingV4ConfigEntity};
 
 #[derive(Clone)]
@@ -14,6 +16,15 @@ pub struct NatServiceRepository {
 impl NatServiceRepository {
     pub fn new(db: DatabaseConnection) -> Self {
         Self { db }
+    }
+
+    pub async fn find_active_nat_config(&self) -> Result<Option<NatServiceConfig>, LdError> {
+        let res = NatServiceConfigEntity::find()
+            .filter(NatCol::Enable.eq(true))
+            .one(&self.db)
+            .await?
+            .map(Into::into);
+        Ok(res)
     }
 
     pub async fn has_static_port_in_dynamic_range(
@@ -38,6 +49,30 @@ impl NatServiceRepository {
 
         let res = StaticNatMappingV4ConfigEntity::find()
             .filter(StCol::Enable.eq(true))
+            .filter(expr)
+            .one(&self.db)
+            .await?;
+        Ok(res.is_some())
+    }
+
+    pub async fn is_port_in_dynamic_range(&self, proto: u8, port: u16) -> Result<bool, LdError> {
+        let expr = Expr::cust_with_values(
+            "EXISTS (
+                SELECT 1 FROM nat_service_config
+                WHERE enable = 1
+                  AND ((proto = 6  AND ? BETWEEN tcp_range_start AND tcp_range_end)
+                    OR (proto = 17 AND ? BETWEEN udp_range_start AND udp_range_end))
+            )",
+            vec![
+                Value::Int(Some(proto as i32)),
+                Value::Int(Some(port as i32)),
+                Value::Int(Some(proto as i32)),
+                Value::Int(Some(port as i32)),
+            ],
+        );
+
+        let res = NatServiceConfigEntity::find()
+            .filter(NatCol::Enable.eq(true))
             .filter(expr)
             .one(&self.db)
             .await?;

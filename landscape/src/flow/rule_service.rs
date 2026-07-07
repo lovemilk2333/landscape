@@ -2,7 +2,7 @@ use landscape_common::{
     error::LdError,
     event::hub::EnrolledDeviceEventReader,
     event::{dns::DnsEvent, route::RouteEvent},
-    flow::{config::FlowConfig, FlowEntryMatchMode},
+    flow::{config::FlowConfig, FlowEntryMatchMode, FlowRuleError},
     service::controller::{ConfigController, FlowConfigController},
 };
 use landscape_database::{
@@ -81,14 +81,14 @@ impl FlowRuleService {
         &self,
         exclude_id: uuid::Uuid,
         modes: &[FlowEntryMatchMode],
-    ) -> Result<Option<(FlowEntryMatchMode, FlowConfig)>, LdError> {
+    ) -> Result<Option<(FlowEntryMatchMode, FlowConfig)>, FlowRuleError> {
         self.store.find_resolved_conflict_for_modes(exclude_id, modes).await
     }
 
     pub async fn find_duplicate_resolved_mode(
         &self,
         modes: &[FlowEntryMatchMode],
-    ) -> Result<Option<FlowEntryMatchMode>, LdError> {
+    ) -> Result<Option<FlowEntryMatchMode>, FlowRuleError> {
         let resolved_modes = self.store.resolve_modes(modes).await?;
         Ok(find_duplicate_resolved_modes(&resolved_modes))
     }
@@ -96,7 +96,7 @@ impl FlowRuleService {
     pub async fn validate_modes_resolvable(
         &self,
         modes: &[FlowEntryMatchMode],
-    ) -> Result<(), LdError> {
+    ) -> Result<(), FlowRuleError> {
         self.store.validate_modes_resolvable(modes).await
     }
 }

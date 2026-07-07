@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use landscape_common::cert::order::DnsProviderConfig;
 use landscape_common::database::LandscapeStore;
 use landscape_common::ddns::{
-    fqdn_for_zone_record, DdnsFamilyRuntime, DdnsJob, DdnsJobRuntime, DdnsJobStatus,
+    fqdn_for_zone_record, DdnsError, DdnsFamilyRuntime, DdnsJob, DdnsJobRuntime, DdnsJobStatus,
     DdnsRecordRuntime, DdnsRuntimeReason, DdnsSource, IpFamily,
 };
 use landscape_common::dns::provider_profile::DnsProviderProfile;
@@ -99,12 +99,9 @@ impl DdnsService {
         self.runtime.read().await.clone()
     }
 
-    pub async fn sync_job_now(&self, job_id: Uuid) -> Result<DdnsJobRuntime, LdError> {
-        let job = self
-            .store
-            .find_by_id(job_id)
-            .await?
-            .ok_or_else(|| LdError::ConfigError(format!("DDNS job {job_id} not found")))?;
+    pub async fn sync_job_now(&self, job_id: Uuid) -> Result<DdnsJobRuntime, DdnsError> {
+        let job =
+            self.store.find_by_id(job_id).await?.ok_or_else(|| DdnsError::JobNotFound(job_id))?;
 
         if job.enable {
             self.sync_jobs_now(vec![job.clone()]).await;
@@ -320,21 +317,19 @@ impl DdnsService {
         }
     }
 
-    pub async fn checked_set_job(&self, mut config: DdnsJob) -> Result<DdnsJob, LdError> {
-        config.normalize_for_save().map_err(LdError::ConfigError)?;
-        config.validate().map_err(LdError::ConfigError)?;
-        let profile =
-            self.profile_store.find_by_id(config.provider_profile_id).await?.ok_or_else(|| {
-                LdError::ConfigError(format!(
-                    "DNS provider profile {} not found",
-                    config.provider_profile_id
-                ))
-            })?;
+    pub async fn checked_set_job(&self, mut config: DdnsJob) -> Result<DdnsJob, DdnsError> {
+        config.normalize_for_save().map_err(DdnsError::InvalidConfig)?;
+        config.validate().map_err(DdnsError::InvalidConfig)?;
+        let profile = self
+            .profile_store
+            .find_by_id(config.provider_profile_id)
+            .await?
+            .ok_or_else(|| DdnsError::ProviderProfileNotFound(config.provider_profile_id))?;
         build_record_updater(&profile.provider_config)
-            .map_err(|e| LdError::ConfigError(e.to_string()))?;
+            .map_err(|e| DdnsError::ProviderUnavailable(e.to_string()))?;
         validate_provider_zone_access(&profile.provider_config, &config.zone_name)
             .await
-            .map_err(|e| LdError::ConfigError(e.to_string()))?;
+            .map_err(|e| DdnsError::ZoneAccessDenied(e.to_string()))?;
         let saved = self.checked_set(config).await?;
         if saved.enable {
             self.sync_enabled_job_now(&saved).await;

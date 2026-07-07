@@ -4,7 +4,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use landscape_common::enrolled_device::EnrolledDevice;
 use landscape_common::error::LdError;
 use landscape_common::iface::nat::{
-    RuntimeStaticNatMappingConfig, StaticNatMappingConfig, StaticNatTarget,
+    RuntimeStaticNatMappingConfig, StaticNatError, StaticNatMappingConfig, StaticNatTarget,
 };
 use landscape_common::ipv6::lan::{
     LanIPv6ServiceConfigV2, LanPrefixGroupConfig, PrefixParentSource,
@@ -77,27 +77,18 @@ impl StaticNatMappingConfigRepository {
     pub async fn validate_runtime_target(
         &self,
         config: &StaticNatMappingConfig,
-    ) -> Result<(), LdError> {
+    ) -> Result<(), StaticNatError> {
         let devices = self.load_devices_for_configs(std::slice::from_ref(config)).await?;
         if let Some(StaticNatTarget::Device { device_id }) = config.lan_target.as_ref() {
             if !device_id.is_nil() && config.enable {
-                let device = devices.get(device_id).ok_or_else(|| {
-                    LdError::ConfigError(format!(
-                        "device {} referenced in static NAT config does not exist",
-                        device_id
-                    ))
-                })?;
+                let device = devices
+                    .get(device_id)
+                    .ok_or_else(|| StaticNatError::DeviceNotFound(*device_id))?;
                 if !config.ipv4_l4_protocol.is_empty() && device.ipv4.is_none() {
-                    return Err(LdError::ConfigError(format!(
-                        "device {} does not have an IPv4 address",
-                        device_id
-                    )));
+                    return Err(StaticNatError::DeviceMissingIpv4(*device_id));
                 }
                 if !config.ipv6_l4_protocol.is_empty() && device.ipv6.is_none() {
-                    return Err(LdError::ConfigError(format!(
-                        "device {} does not have an IPv6 address",
-                        device_id
-                    )));
+                    return Err(StaticNatError::DeviceMissingIpv6(*device_id));
                 }
             }
         }
