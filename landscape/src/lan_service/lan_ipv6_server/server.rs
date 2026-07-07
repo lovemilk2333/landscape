@@ -9,11 +9,11 @@ use landscape_common::{
     error::LdResult,
     event::hub::{IPv6AssignEvent, IPv6AssignEventSender, IPv6AssignInfo},
     ipv6::lan::LanPrefixGroupConfig,
-    ipv6_pd::IAPrefixMap,
     net::MacAddr,
     net_proto::icmpv6::messages::Icmpv6Message,
     route::{LanIPv6RouteKey, LanRouteInfo, LanRouteMode},
     service::{ServiceStatus, WatchService},
+    wan_service::ipv6_pd::IAPrefixMap,
 };
 use tokio::sync::{mpsc, watch};
 use tokio::{net::UdpSocket, sync::Mutex};

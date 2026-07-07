@@ -57,7 +57,7 @@ use landscape_common::{
     config::RuntimeConfig,
     error::LdResult,
     event::hub::EventHub,
-    ipv6_pd::IAPrefixMap,
+    wan_service::ipv6_pd::IAPrefixMap,
     VERSION,
 };
 use landscape_common::{config::InitConfig, dhcp::v4_server::config::DHCPv4ServiceConfig};

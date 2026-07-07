@@ -3,7 +3,7 @@ use std::net::Ipv6Addr;
 use landscape_common::{
     dhcp::v6_server::config::DHCPv6IAPDConfig,
     ipv6::lan::{LanPrefixGroupConfig, PdPrefixRangeConfig, PrefixParentSource},
-    ipv6_pd::IAPrefixMap,
+    wan_service::ipv6_pd::IAPrefixMap,
 };
 
 use super::*;

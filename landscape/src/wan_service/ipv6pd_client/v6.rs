@@ -23,9 +23,9 @@ use landscape_common::{event::hub::IAPrefixEvent, net::MacAddr, route::RouteTarg
 use landscape_common::{
     event::hub::IAPrefixEventSender,
     ipv6::checked_allocate_subnet,
-    ipv6_pd::{IAPrefixMap, LDIAPrefix},
     service::{ServiceStatus, WatchService},
     utils::time::get_f64_timestamp,
+    wan_service::ipv6_pd::{IAPrefixMap, LDIAPrefix},
     LANDSCAPE_DEFAULE_DHCP_V6_SERVER_PORT,
 };
 
@@ -775,7 +775,7 @@ async fn handle_packet(
 }
 
 fn replace_ip_route(
-    iapd: &landscape_common::ipv6_pd::LDIAPrefix,
+    iapd: &landscape_common::wan_service::ipv6_pd::LDIAPrefix,
     route_ip: Ipv6Addr,
     iface_name: &str,
     ifindex: u32,
@@ -811,7 +811,7 @@ fn replace_ip_route(
 }
 
 fn derive_wan_pd_addr(
-    ia_prefix: &landscape_common::ipv6_pd::LDIAPrefix,
+    ia_prefix: &landscape_common::wan_service::ipv6_pd::LDIAPrefix,
     shared_wan_iid: u64,
 ) -> Option<Ipv6Addr> {
     let wan_prefix = match ia_prefix.prefix_len {

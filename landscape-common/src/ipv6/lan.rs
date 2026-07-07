@@ -8,10 +8,10 @@ use crate::database::repository::LandscapeDBStore;
 use crate::dhcp::v6_server::config::DHCPv6ServerConfig;
 use crate::iface::config::{ServiceKind, ZoneAwareConfig, ZoneRequirement};
 use crate::ipv6::ra::RouterFlags;
-use crate::ipv6_pd::LDIAPrefix;
 use crate::service::ServiceConfigError;
 use crate::store::storev2::LandscapeStore;
 use crate::utils::time::get_f64_timestamp;
+use crate::wan_service::ipv6_pd::LDIAPrefix;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]

@@ -14,10 +14,10 @@ use landscape_common::{
         checked_allocate_subnet,
         lan::{LanPrefixGroupConfig, PrefixParentSource},
     },
-    ipv6_pd::IAPrefixMap,
     lan_services::ipv6_ra::{IPv6NAInfo, IPv6NAInfoItem},
     net::MacAddr,
     utils::time::get_f64_timestamp,
+    wan_service::ipv6_pd::IAPrefixMap,
 };
 use tokio::sync::{mpsc, watch};
 

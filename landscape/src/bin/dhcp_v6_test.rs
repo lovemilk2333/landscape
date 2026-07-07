@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv6Addr};
 use clap::Parser;
 use landscape::{get_iface_by_name, wan_service::ipv6pd_client::v6::dhcp_v6_pd_client};
 use landscape_common::{
-    event::hub::IAPrefixEventSender, ipv6_pd::IAPrefixMap, route::RouteTargetInfo,
+    event::hub::IAPrefixEventSender, route::RouteTargetInfo, wan_service::ipv6_pd::IAPrefixMap,
 };
 use landscape_common::{
     service::{ServiceStatus, WatchService},

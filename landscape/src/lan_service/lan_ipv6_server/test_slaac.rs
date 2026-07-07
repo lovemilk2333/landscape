@@ -3,8 +3,8 @@ use std::net::Ipv6Addr;
 use landscape_common::{
     dhcp::v6_server::config::DHCPv6IANAConfig,
     ipv6::lan::{LanPrefixGroupConfig, NaPrefixConfig, PrefixParentSource, RaPrefixConfig},
-    ipv6_pd::IAPrefixMap,
     net::MacAddr,
+    wan_service::ipv6_pd::IAPrefixMap,
 };
 
 use super::*;

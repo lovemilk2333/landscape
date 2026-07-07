@@ -4,10 +4,10 @@ use std::net::Ipv6Addr;
 use std::sync::Arc;
 
 use landscape_common::event::hub::{IAPrefixEventSender, IfaceEventReader};
-use landscape_common::ipv6_pd::IAPrefixMap;
-use landscape_common::ipv6_pd::LDIAPrefix;
 use landscape_common::route::RouteTargetInfo;
 use landscape_common::service::manager::ServiceStarterTrait;
+use landscape_common::wan_service::ipv6_pd::IAPrefixMap;
+use landscape_common::wan_service::ipv6_pd::LDIAPrefix;
 
 use landscape_common::database::LandscapeStore;
 use landscape_common::{
