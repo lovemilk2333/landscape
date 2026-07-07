@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use landscape_common::global_const::default_router::{RouteInfo, RouteType, LD_ALL_ROUTERS};
 use landscape_common::net::MacAddr;
-use landscape_common::route::{LanRouteInfo, LanRouteMode, RouteTargetInfo};
+use landscape_common::sys_service::route_service::{LanRouteInfo, LanRouteMode, RouteTargetInfo};
 
 use landscape_ebpf::pppoe::pppoe_handle::PppoeHandle;
 

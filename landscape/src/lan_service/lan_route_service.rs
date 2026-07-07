@@ -1,6 +1,6 @@
 use landscape_common::database::LandscapeStore;
 use landscape_common::event::hub::IfaceEventReader;
-use landscape_common::route::lan::RouteLanServiceConfig;
+use landscape_common::lan_service::lan_route::RouteLanServiceConfig;
 use landscape_common::{
     concurrency::{spawn_task, spawn_task_with_resource, task_label},
     observer::IfaceObserverAction,

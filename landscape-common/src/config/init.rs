@@ -24,13 +24,13 @@ use crate::lan_service::ap::WifiServiceConfig;
 use crate::lan_service::lan_dhcpv4::config::DHCPv4ServiceConfig;
 use crate::lan_service::lan_ipv6::IPV6RAServiceConfig;
 use crate::lan_service::lan_ipv6::LanIPv6ServiceConfigV2;
-use crate::route::lan::RouteLanServiceConfig;
-use crate::route::wan::RouteWanServiceConfig;
+use crate::lan_service::lan_route::RouteLanServiceConfig;
 use crate::wan_service::ip_config::IfaceIpServiceConfig;
 use crate::wan_service::ipv6_pd::IPV6PDServiceConfig;
 use crate::wan_service::mss_clamp::MSSClampServiceConfig;
 use crate::wan_service::nat::config::NatServiceConfig;
 use crate::wan_service::pppd::PPPDServiceConfig;
+use crate::wan_service::wan_route::RouteWanServiceConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(default)]

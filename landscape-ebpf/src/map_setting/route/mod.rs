@@ -3,13 +3,11 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use landscape_common::{
     config::FlowId,
     flow::mark::FlowMark,
-    route::{
-        trace::{
-            FlowMatchRequest, FlowMatchResult, FlowMatchSource, FlowRuleMatchResult,
-            FlowVerdictRequest, FlowVerdictResult, FlowVerdictSource, SingleVerdictResult,
-        },
-        LanRouteInfo, RouteTargetInfo,
+    flow::trace::{
+        FlowMatchRequest, FlowMatchResult, FlowMatchSource, FlowRuleMatchResult,
+        FlowVerdictRequest, FlowVerdictResult, FlowVerdictSource, SingleVerdictResult,
     },
+    sys_service::route_service::{LanRouteInfo, RouteTargetInfo},
 };
 use libbpf_rs::{MapCore, MapFlags};
 
@@ -524,10 +522,10 @@ where
     }
 
     match &lan_info.mode {
-        landscape_common::route::LanRouteMode::Reachable => {
+        landscape_common::sys_service::route_service::LanRouteMode::Reachable => {
             value.route_type = ROUTE_TYPE_LAN;
         }
-        landscape_common::route::LanRouteMode::NextHop { next_hop_ip } => {
+        landscape_common::sys_service::route_service::LanRouteMode::NextHop { next_hop_ip } => {
             value.route_type = ROUTE_TYPE_NEXTHOP;
 
             match next_hop_ip {
@@ -539,7 +537,7 @@ where
                 }
             }
         }
-        landscape_common::route::LanRouteMode::WanReachable => {
+        landscape_common::sys_service::route_service::LanRouteMode::WanReachable => {
             value.route_type = ROUTE_TYPE_WAN;
         }
     }
@@ -588,10 +586,10 @@ where
     }
 
     match &lan_info.mode {
-        landscape_common::route::LanRouteMode::Reachable => {
+        landscape_common::sys_service::route_service::LanRouteMode::Reachable => {
             value.route_type = ROUTE_TYPE_LAN;
         }
-        landscape_common::route::LanRouteMode::NextHop { next_hop_ip } => {
+        landscape_common::sys_service::route_service::LanRouteMode::NextHop { next_hop_ip } => {
             value.route_type = ROUTE_TYPE_NEXTHOP;
 
             match next_hop_ip {
@@ -603,7 +601,7 @@ where
                 }
             }
         }
-        landscape_common::route::LanRouteMode::WanReachable => {
+        landscape_common::sys_service::route_service::LanRouteMode::WanReachable => {
             value.route_type = ROUTE_TYPE_WAN;
         }
     }

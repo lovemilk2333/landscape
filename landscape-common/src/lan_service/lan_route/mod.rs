@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::database::repository::LandscapeDBStore;
 use crate::iface::config::{ServiceKind, ZoneAwareConfig, ZoneRequirement};
 use crate::net::MacAddr;
-use crate::route::{LanRouteInfo, LanRouteMode};
 use crate::store::storev2::LandscapeStore;
+use crate::sys_service::route_service::{LanRouteInfo, LanRouteMode};
 use crate::utils::time::get_f64_timestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::IpAddr};
 
-use crate::{dev::get_interface_index_by_name, net::MacAddr, route::LanRouteInfo};
+use crate::{
+    dev::get_interface_index_by_name, net::MacAddr, sys_service::route_service::LanRouteInfo,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]

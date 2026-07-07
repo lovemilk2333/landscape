@@ -12,11 +12,11 @@ use landscape_common::lan_service::lan_dhcpv4::status::ArpScanInfo;
 use landscape_common::lan_service::lan_dhcpv4::status::ArpScanStatus;
 use landscape_common::lan_service::lan_dhcpv4::status::DHCPv4OfferInfo;
 use landscape_common::lan_service::lan_dhcpv4::DhcpError;
-use landscape_common::route::LanRouteInfo;
-use landscape_common::route::LanRouteMode;
 use landscape_common::service::controller::ControllerService;
 use landscape_common::service::WatchService;
 use landscape_common::store::storev2::LandscapeStore;
+use landscape_common::sys_service::route_service::LanRouteInfo;
+use landscape_common::sys_service::route_service::LanRouteMode;
 use landscape_common::LAND_ARP_SCAN_INTERVAL;
 use landscape_common::{
     observer::IfaceObserverAction,

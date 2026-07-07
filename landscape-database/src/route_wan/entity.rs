@@ -1,5 +1,5 @@
 use crate::repository::UpdateActiveModel;
-use landscape_common::route::wan::RouteWanServiceConfig;
+use landscape_common::wan_service::wan_route::RouteWanServiceConfig;
 use sea_orm::{entity::prelude::*, ActiveValue::Set};
 use serde::{Deserialize, Serialize};
 

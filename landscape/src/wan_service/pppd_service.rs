@@ -5,9 +5,9 @@ use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
-use landscape_common::route::LanRouteInfo;
-use landscape_common::route::LanRouteMode;
-use landscape_common::route::RouteTargetInfo;
+use landscape_common::sys_service::route_service::LanRouteInfo;
+use landscape_common::sys_service::route_service::LanRouteMode;
+use landscape_common::sys_service::route_service::RouteTargetInfo;
 use tokio::sync::{oneshot, watch};
 
 use landscape_common::database::LandscapeStore;

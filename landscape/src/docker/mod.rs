@@ -6,8 +6,8 @@ use bollard::{
 use landscape_common::docker::error::DockerError;
 use landscape_common::docker::DockerTargetEnroll;
 use landscape_common::{
-    route::RouteTargetInfo,
     service::{ServiceStatus, WatchService},
+    sys_service::route_service::RouteTargetInfo,
 };
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};

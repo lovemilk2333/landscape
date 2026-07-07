@@ -13,6 +13,7 @@ pub mod config;
 pub mod mark;
 pub mod service;
 pub mod target;
+pub mod trace;
 
 #[derive(thiserror::Error, Debug, LdApiError)]
 #[api_error(crate_path = "crate")]

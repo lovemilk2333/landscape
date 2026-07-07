@@ -50,7 +50,7 @@ use landscape::{
     },
     wifi::WifiServiceManagerService,
 };
-use landscape_common::route::lan::RouteLanServiceConfig;
+use landscape_common::lan_service::lan_route::RouteLanServiceConfig;
 use landscape_common::{
     args::{DbAction, LandscapeAction, LAND_ARGS, LAND_HOME_PATH},
     concurrency::{runtime_thread_name_fn, spawn_task, task_label, thread_name},

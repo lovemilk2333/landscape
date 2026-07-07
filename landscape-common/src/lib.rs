@@ -26,7 +26,7 @@ pub mod info;
 pub mod ip_mark;
 pub mod metric;
 pub mod network;
-pub mod route;
+
 pub mod service;
 
 pub mod auth;

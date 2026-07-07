@@ -11,8 +11,8 @@ use landscape_common::{
     lan_service::lan_ipv6::LanPrefixGroupConfig,
     net::MacAddr,
     net_proto::icmpv6::messages::Icmpv6Message,
-    route::{LanIPv6RouteKey, LanRouteInfo, LanRouteMode},
     service::{ServiceStatus, WatchService},
+    sys_service::route_service::{LanIPv6RouteKey, LanRouteInfo, LanRouteMode},
     wan_service::ipv6_pd::IAPrefixMap,
 };
 use tokio::sync::{mpsc, watch};

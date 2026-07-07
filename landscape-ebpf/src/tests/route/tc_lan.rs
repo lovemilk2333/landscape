@@ -9,7 +9,7 @@ mod tests {
     use landscape_common::{
         flow::mark::FlowMark,
         ip_mark::{IpConfig, IpMarkInfo},
-        route::RouteTargetInfo,
+        sys_service::route_service::RouteTargetInfo,
     };
     use libbpf_rs::{
         skel::{OpenSkel, SkelBuilder as _},

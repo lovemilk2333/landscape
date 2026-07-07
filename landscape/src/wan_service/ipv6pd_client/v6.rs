@@ -19,7 +19,9 @@ use crate::{
     sys_service::route::IpRouteService,
 };
 
-use landscape_common::{event::hub::IAPrefixEvent, net::MacAddr, route::RouteTargetInfo};
+use landscape_common::{
+    event::hub::IAPrefixEvent, net::MacAddr, sys_service::route_service::RouteTargetInfo,
+};
 use landscape_common::{
     event::hub::IAPrefixEventSender,
     lan_service::lan_ipv6::checked_allocate_subnet,

@@ -1,5 +1,5 @@
 use landscape_common::api_response::LandscapeApiResp as CommonApiResp;
-use landscape_common::route::trace::{
+use landscape_common::flow::trace::{
     FlowMatchRequest, FlowMatchResult, FlowVerdictRequest, FlowVerdictResult,
 };
 use utoipa_axum::router::OpenApiRouter;

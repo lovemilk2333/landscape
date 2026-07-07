@@ -13,7 +13,7 @@ use landscape_common::{
     dns::dnr::{is_valid_dnr_ipv4_addr, is_valid_dnr_ipv6_addr},
     event::route::RouteEvent,
     flow::{config::FlowConfig, FlowTarget},
-    route::{LanIPv6RouteKey, LanRouteInfo, LanRouteMode, RouteTargetInfo},
+    sys_service::route_service::{LanIPv6RouteKey, LanRouteInfo, LanRouteMode, RouteTargetInfo},
 };
 use landscape_database::flow_rule::repository::FlowConfigRepository;
 use landscape_dns::server::LocalDnsAnswerProvider;

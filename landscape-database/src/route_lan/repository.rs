@@ -1,4 +1,4 @@
-use landscape_common::route::lan::RouteLanServiceConfig;
+use landscape_common::lan_service::lan_route::RouteLanServiceConfig;
 use sea_orm::DatabaseConnection;
 
 use super::entity::{
