@@ -40,6 +40,21 @@ fn build_ipv4_tcp(src: Ipv4Addr, dst: Ipv4Addr, src_port: u16, dst_port: u16) ->
     buf
 }
 
+fn build_ipv4_tcp_syn(src: Ipv4Addr, dst: Ipv4Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
+    let builder = PacketBuilder::ethernet2(
+        [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
+        [0x11, 0x22, 0x33, 0x44, 0x55, 0x66],
+    )
+    .ipv4(src.octets(), dst.octets(), 64)
+    .tcp(src_port, dst_port, 0x12345678, 65535)
+    .syn();
+
+    let payload = [0u8; 0];
+    let mut buf = Vec::with_capacity(builder.size(payload.len()));
+    builder.write(&mut buf, &payload).unwrap();
+    buf
+}
+
 fn build_ipv4_udp(src: Ipv4Addr, dst: Ipv4Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
     let builder = PacketBuilder::ethernet2(
         [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
@@ -292,11 +307,106 @@ mod tests {
 
         let pkt_out = etherparse::PacketHeaders::from_ethernet_slice(&packet_out)
             .expect("parse output packet");
+        if let Some(etherparse::NetHeaders::Ipv4(ipv4, _)) = pkt_out.net {
+            let dst: Ipv4Addr = ipv4.destination.into();
+            assert_eq!(dst, WAN_IP, "dst_ip should stay WAN_IP, not 0.0.0.0 (OK path passthrough)");
+        } else {
+            panic!("expected IPv4 header in output");
+        }
         if let Some(etherparse::TransportHeader::Tcp(tcp)) = pkt_out.transport {
             assert_eq!(tcp.destination_port, 80, "dst_port should be rewritten to 80");
         } else {
             panic!("expected TCP transport header in output");
         }
+    }
+
+    #[test]
+    fn tcp_ingress_local_router_v3_create_path_preserves_dst_ip() {
+        let _guard = NAT_V3_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut builder = TcNatSkelBuilder::default();
+        let pin_root = crate::tests::nat::isolated_pin_root("nat-v4-static-v3-local-create");
+        builder.object_builder_mut().pin_root_path(&pin_root).unwrap();
+        let mut open_object = MaybeUninit::uninit();
+        let open_skel = builder.open(&mut open_object).unwrap();
+        let skel = open_skel.load().unwrap();
+
+        add_wan_ip(
+            &skel.maps.wan_ip_binding,
+            IFINDEX,
+            IpAddr::V4(WAN_IP),
+            None,
+            24,
+            Some(MacAddr::broadcast()),
+        );
+
+        // Static mapping with lan_ip = 0.0.0.0 (passthrough / local router)
+        add_static_nat4_mapping_v3(
+            &skel.maps.nat4_st_map,
+            vec![StaticNatMappingV4Item {
+                wan_port: 8080,
+                lan_port: 80,
+                lan_ip: Ipv4Addr::UNSPECIFIED,
+                l4_protocol: 6,
+            }],
+        );
+
+        // No pre-seeded CT — exercise the create path (CT_RESOLVE_MISS)
+        let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, 8080);
+        let mut ctx = TestSkb::default();
+        ctx.ifindex = IFINDEX;
+
+        let mut packet_out = vec![0u8; pkt.len()];
+        let input = ProgramInput {
+            data_in: Some(&mut pkt),
+            context_in: Some(ctx.as_mut_bytes()),
+            data_out: Some(&mut packet_out),
+            ..Default::default()
+        };
+
+        let result = skel.progs.tc_nat_wan_ingress.test_run(input).expect("test_run failed");
+        assert_eq!(result.return_value as i32, 0, "ingress should return TC_ACT_OK(0)");
+
+        let pkt_out = etherparse::PacketHeaders::from_ethernet_slice(&packet_out)
+            .expect("parse output packet");
+        // dst IP must stay WAN_IP (passthrough), NOT become 0.0.0.0
+        if let Some(etherparse::NetHeaders::Ipv4(ipv4, _)) = pkt_out.net {
+            let dst: Ipv4Addr = ipv4.destination.into();
+            assert_eq!(dst, WAN_IP, "dst_ip should stay WAN_IP, not 0.0.0.0");
+        } else {
+            panic!("expected IPv4 header in output");
+        }
+        if let Some(etherparse::TransportHeader::Tcp(tcp)) = pkt_out.transport {
+            assert_eq!(tcp.destination_port, 80, "dst_port should be rewritten to 80");
+        } else {
+            panic!("expected TCP transport header in output");
+        }
+
+        // verify CT was created and stores the concrete dst (WAN_IP) as client_addr
+        let timer_key = types::nat_timer_key_v4 {
+            l4proto: 6,
+            _pad: [0; 3],
+            pair_ip: types::inet4_pair {
+                src_addr: types::inet4_addr { addr: REMOTE_IP.to_bits().to_be() },
+                dst_addr: types::inet4_addr { addr: WAN_IP.to_bits().to_be() },
+                src_port: 443u16.to_be(),
+                dst_port: 8080u16.to_be(),
+            },
+        };
+        let timer_bytes = skel
+            .maps
+            .nat4_mapping_timer_v3
+            .lookup(unsafe { plain::as_bytes(&timer_key) }, MapFlags::ANY)
+            .expect("lookup ct");
+        let timer_bytes = timer_bytes.expect("ingress should create CT");
+        let timer = unsafe {
+            std::ptr::read_unaligned(timer_bytes.as_ptr().cast::<types::nat4_timer_value_v3>())
+        };
+        assert_eq!(
+            timer.client_addr.addr,
+            WAN_IP.to_bits().to_be(),
+            "CT client_addr must be WAN_IP, not 0"
+        );
+        assert_eq!(timer.client_port, 80u16.to_be(), "CT client_port must be 80");
     }
 
     #[test]

@@ -592,4 +592,47 @@ mod tests {
         assert_eq!(result.state_exists, 1);
         assert_eq!(result.state_ref, state_ref(STATE_ACTIVE, 0));
     }
+
+    #[test]
+    fn static_ct_release_skips_dynamic_cleanup() {
+        let _guard = NAT_V3_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut builder = TestNatV3TimerSkelBuilder::default();
+        let pin_root = crate::tests::nat::isolated_pin_root("nat-v4-dynamic-v3-timer");
+        builder.object_builder_mut().pin_root_path(&pin_root).unwrap();
+        let mut open_object = MaybeUninit::uninit();
+        let open = builder.open(&mut open_object).unwrap();
+        let skel = open.load().unwrap();
+
+        put_mapping_pair(&skel.maps.nat4_ingress_dyn_map, &skel.maps.nat4_egress_dyn_map);
+
+        let key = timer_key();
+        let mut value = types::nat4_timer_value_v3::default();
+        value.server_status = CT_SYN;
+        value.client_status = CT_SYN;
+        value.status = TIMER_RELEASE;
+        value.client_addr = types::inet4_addr { addr: LAN_HOST.to_bits().to_be() };
+        value.client_port = LAN_PORT.to_be();
+        value.gress = NAT_MAPPING_INGRESS;
+        value.create_time = 1;
+        value.ifindex = IFINDEX;
+        value.generation_snapshot = GENERATION;
+        value.is_static = 1;
+        skel.maps
+            .nat4_mapping_timer_v3
+            .update(as_bytes(&key), as_bytes(&value), MapFlags::ANY)
+            .unwrap();
+
+        let result = run_step(&skel, false);
+
+        assert_eq!(result.action, STEP_DELETE_CT, "static CT should be deleted");
+        assert_eq!(result.timer_exists, 0, "CT should no longer exist");
+        assert_eq!(
+            result.ingress_mapping_exists, 1,
+            "dynamic ingress mapping preserved (fast path skips dynamic cleanup)"
+        );
+        assert_eq!(
+            result.egress_mapping_exists, 1,
+            "dynamic egress mapping preserved (fast path skips dynamic cleanup)"
+        );
+    }
 }

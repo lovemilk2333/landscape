@@ -120,7 +120,6 @@ static __always_inline int nat_ct_advance(u8 pkt_type, u8 gress,
 #define NAT4_V3_REF_MASK ((1ULL << NAT4_V3_STATE_SHIFT) - 1)
 #define NAT4_V3_STATE_ACTIVE 1
 #define NAT4_V3_STATE_CLOSED 2
-#define TIMER_PENDING_REF 10ULL
 #define DELETE_RETRY_INTERVAL 100000000ULL
 #define QUEUE_RETRY_INTERVAL 500000000ULL
 #define NAT4_V3_TIMER_STEP_DELETE_CT 1U
@@ -135,6 +134,12 @@ static __always_inline u8 nat4_v3_state_get(u64 state_ref) {
 }
 
 static __always_inline u64 nat4_v3_ref_get(u64 state_ref) { return state_ref & NAT4_V3_REF_MASK; }
+
+static __always_inline bool nat4_v3_dyn_can_create_ct(const struct nat4_mapping_value_v3 *ingress) {
+    u64 sr = ingress->state_ref;
+    return ingress->is_allow_reuse && nat4_v3_state_get(sr) == NAT4_V3_STATE_ACTIVE &&
+           nat4_v3_ref_get(sr) > 0;
+}
 
 static __always_inline int nat4_v3_state_try_inc(struct nat4_mapping_value_v3 *value) {
     u64 old = value->state_ref;
@@ -391,6 +396,10 @@ static __always_inline u32 nat4_v3_handle_timer_step(struct nat_timer_key_v4 *ke
     if (current_status == TIMER_RELEASE) {
         ret = nat_metric_try_report_v4(key, base, NAT_CONN_DELETE);
 
+        if (value->is_static) {
+            return nat4_v3_timer_delete_ct(key);
+        }
+
         struct nat4_mapping_value_v3 *ingress_value = nat4_v3_lookup_ingress_dynamic(
             key->l4proto, key->pair_ip.dst_addr.addr, key->pair_ip.dst_port);
         if (!ingress_value || ingress_value->generation != value->generation_snapshot) {
@@ -472,6 +481,10 @@ static __always_inline u32 nat4_v3_handle_timer_step(struct nat_timer_key_v4 *ke
     }
 
     if (current_status == TIMER_PUSH_QUEUE) {
+        if (value->is_static) {
+            return nat4_v3_timer_delete_ct(key);
+        }
+
         struct nat4_port_queue_value_v3 free_item = {
             .port = key->pair_ip.dst_port,
             .last_generation = value->generation_snapshot,
@@ -558,6 +571,26 @@ nat4_v3_insert_ct(const struct nat_timer_key_v4 *key, const struct nat4_timer_va
 err:
     bpf_map_delete_elem(&nat4_mapping_timer_v3, key);
     return NULL;
+}
+
+enum ct_ingress_resolve {
+    CT_RESOLVE_MISS = 0,
+    CT_RESOLVE_OK = 1,
+    CT_RESOLVE_UNUSABLE = 2,
+};
+
+static __always_inline enum ct_ingress_resolve
+nat4_ct_ingress_resolve(const struct nat_timer_key_v4 *ct_key,
+                        struct nat4_timer_value_v3 **timer_value_) {
+    struct nat4_timer_value_v3 *tv = bpf_map_lookup_elem(&nat4_mapping_timer_v3, ct_key);
+    if (!tv) {
+        return CT_RESOLVE_MISS;
+    }
+    if (tv->status == TIMER_PENDING_REF || tv->status >= TIMER_RELEASE) {
+        return CT_RESOLVE_UNUSABLE;
+    }
+    *timer_value_ = tv;
+    return CT_RESOLVE_OK;
 }
 
 static __always_inline int nat4_ct_resolve(const struct nat_timer_key_v4 *ct_key,
@@ -758,20 +791,6 @@ nat4_dyn_ingress_lookup_and_check(u8 ip_protocol, const struct inet4_pair *pkt_i
     struct nat4_mapping_value_v3 *dynamic_value =
         bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
     if (!dynamic_value) return TC_ACT_SHOT;
-
-    struct nat_mapping_key_v4 egress_key = {
-        .gress = NAT_MAPPING_EGRESS,
-        .l4proto = ip_protocol,
-        .from_port = dynamic_value->port,
-        .from_addr = dynamic_value->addr,
-    };
-    struct nat4_egress_mapping_value_v3 *egress_value =
-        bpf_map_lookup_elem(&nat4_egress_dyn_map, &egress_key);
-    if (!egress_value || egress_value->addr != pkt_ip_pair->dst_addr.addr ||
-        egress_value->port != pkt_ip_pair->dst_port) {
-        bpf_map_delete_elem(&nat4_ingress_dyn_map, &ingress_key);
-        return TC_ACT_SHOT;
-    }
 
     if (dynamic_value->is_allow_reuse == 0 && ip_protocol != IPPROTO_ICMP) {
         if (pkt_ip_pair->src_addr.addr != dynamic_value->trigger_addr ||

@@ -1186,6 +1186,274 @@ mod tests {
     }
 
     #[test]
+    fn tcp_ingress_dynamic_v3_ct_teardown_rejects_ingress() {
+        let _guard = NAT_V3_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut builder = TcNatSkelBuilder::default();
+        let pin_root = crate::tests::nat::isolated_pin_root("nat-v4-dynamic-v3");
+        builder.object_builder_mut().pin_root_path(&pin_root).unwrap();
+        let mut open_object = MaybeUninit::uninit();
+        let open_skel = builder.open(&mut open_object).unwrap();
+        let skel = open_skel.load().unwrap();
+
+        add_wan_ip(
+            &skel.maps.wan_ip_binding,
+            IFINDEX,
+            IpAddr::V4(WAN_IP),
+            None,
+            24,
+            Some(MacAddr::broadcast()),
+        );
+
+        add_dynamic_mapping_pair(
+            &skel.maps.nat4_egress_dyn_map,
+            &skel.maps.nat4_ingress_dyn_map,
+            6,
+            LAN_HOST,
+            LAN_PORT,
+            WAN_IP,
+            NAT_PORT,
+            REMOTE_IP,
+            443,
+        );
+
+        add_v3_ct(
+            &skel.maps.nat4_mapping_timer_v3,
+            6,
+            REMOTE_IP,
+            443,
+            WAN_IP,
+            NAT_PORT,
+            LAN_HOST,
+            LAN_PORT,
+            NAT_MAPPING_INGRESS,
+        );
+
+        let ct_key = types::nat_timer_key_v4 {
+            l4proto: 6,
+            _pad: [0; 3],
+            pair_ip: types::inet4_pair {
+                src_addr: types::inet4_addr { addr: REMOTE_IP.to_bits().to_be() },
+                dst_addr: types::inet4_addr { addr: WAN_IP.to_bits().to_be() },
+                src_port: 443u16.to_be(),
+                dst_port: NAT_PORT.to_be(),
+            },
+        };
+        let ct_bytes = skel
+            .maps
+            .nat4_mapping_timer_v3
+            .lookup(unsafe { plain::as_bytes(&ct_key) }, MapFlags::ANY)
+            .unwrap()
+            .expect("ct should exist");
+        let mut ct_value = unsafe {
+            std::ptr::read_unaligned(ct_bytes.as_ptr().cast::<types::nat4_timer_value_v3>())
+        };
+        ct_value.status = 40;
+        skel.maps
+            .nat4_mapping_timer_v3
+            .update(
+                unsafe { plain::as_bytes(&ct_key) },
+                unsafe { plain::as_bytes(&ct_value) },
+                MapFlags::ANY,
+            )
+            .unwrap();
+
+        let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
+        let mut ctx = TestSkb::default();
+        ctx.ifindex = IFINDEX;
+
+        let mut packet_out = vec![0u8; pkt.len()];
+        let input = ProgramInput {
+            data_in: Some(&mut pkt),
+            context_in: Some(ctx.as_mut_bytes()),
+            data_out: Some(&mut packet_out),
+            ..Default::default()
+        };
+
+        let result = skel.progs.tc_nat_wan_ingress.test_run(input).expect("test_run failed");
+
+        assert_eq!(
+            result.return_value as i32, 2,
+            "CT with status >= TIMER_RELEASE should be rejected"
+        );
+    }
+
+    #[test]
+    fn tcp_ingress_dynamic_v3_ct_pending_ref_rejects_ingress() {
+        let _guard = NAT_V3_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut builder = TcNatSkelBuilder::default();
+        let pin_root = crate::tests::nat::isolated_pin_root("nat-v4-dynamic-v3");
+        builder.object_builder_mut().pin_root_path(&pin_root).unwrap();
+        let mut open_object = MaybeUninit::uninit();
+        let open_skel = builder.open(&mut open_object).unwrap();
+        let skel = open_skel.load().unwrap();
+
+        add_wan_ip(
+            &skel.maps.wan_ip_binding,
+            IFINDEX,
+            IpAddr::V4(WAN_IP),
+            None,
+            24,
+            Some(MacAddr::broadcast()),
+        );
+
+        add_dynamic_mapping_pair(
+            &skel.maps.nat4_egress_dyn_map,
+            &skel.maps.nat4_ingress_dyn_map,
+            6,
+            LAN_HOST,
+            LAN_PORT,
+            WAN_IP,
+            NAT_PORT,
+            REMOTE_IP,
+            443,
+        );
+
+        add_v3_ct(
+            &skel.maps.nat4_mapping_timer_v3,
+            6,
+            REMOTE_IP,
+            443,
+            WAN_IP,
+            NAT_PORT,
+            LAN_HOST,
+            LAN_PORT,
+            NAT_MAPPING_INGRESS,
+        );
+
+        let ct_key = types::nat_timer_key_v4 {
+            l4proto: 6,
+            _pad: [0; 3],
+            pair_ip: types::inet4_pair {
+                src_addr: types::inet4_addr { addr: REMOTE_IP.to_bits().to_be() },
+                dst_addr: types::inet4_addr { addr: WAN_IP.to_bits().to_be() },
+                src_port: 443u16.to_be(),
+                dst_port: NAT_PORT.to_be(),
+            },
+        };
+        let ct_bytes = skel
+            .maps
+            .nat4_mapping_timer_v3
+            .lookup(unsafe { plain::as_bytes(&ct_key) }, MapFlags::ANY)
+            .unwrap()
+            .expect("ct should exist");
+        let mut ct_value = unsafe {
+            std::ptr::read_unaligned(ct_bytes.as_ptr().cast::<types::nat4_timer_value_v3>())
+        };
+        ct_value.status = 10;
+        skel.maps
+            .nat4_mapping_timer_v3
+            .update(
+                unsafe { plain::as_bytes(&ct_key) },
+                unsafe { plain::as_bytes(&ct_value) },
+                MapFlags::ANY,
+            )
+            .unwrap();
+
+        let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
+        let mut ctx = TestSkb::default();
+        ctx.ifindex = IFINDEX;
+
+        let mut packet_out = vec![0u8; pkt.len()];
+        let input = ProgramInput {
+            data_in: Some(&mut pkt),
+            context_in: Some(ctx.as_mut_bytes()),
+            data_out: Some(&mut packet_out),
+            ..Default::default()
+        };
+
+        let result = skel.progs.tc_nat_wan_ingress.test_run(input).expect("test_run failed");
+
+        assert_eq!(
+            result.return_value as i32, 2,
+            "CT with status TIMER_PENDING_REF should be rejected"
+        );
+    }
+
+    #[test]
+    fn tcp_ingress_dynamic_v3_no_reuse_rejects_ct_creation() {
+        let _guard = NAT_V3_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut builder = TcNatSkelBuilder::default();
+        let pin_root = crate::tests::nat::isolated_pin_root("nat-v4-dynamic-v3");
+        builder.object_builder_mut().pin_root_path(&pin_root).unwrap();
+        let mut open_object = MaybeUninit::uninit();
+        let open_skel = builder.open(&mut open_object).unwrap();
+        let skel = open_skel.load().unwrap();
+
+        add_wan_ip(
+            &skel.maps.wan_ip_binding,
+            IFINDEX,
+            IpAddr::V4(WAN_IP),
+            None,
+            24,
+            Some(MacAddr::broadcast()),
+        );
+
+        // Insert a dynamic mapping with is_allow_reuse=0 (restricted cone NAT)
+        let ingress_key = NatMappingKeyV4 {
+            gress: NAT_MAPPING_INGRESS,
+            l4proto: 6,
+            from_port: NAT_PORT.to_be(),
+            from_addr: WAN_IP.to_bits().to_be(),
+        };
+        let ingress_val = types::nat4_mapping_value_v3 {
+            state_ref: ((1u64) << 56) | 1, // ACTIVE, ref=1
+            addr: LAN_HOST.to_bits().to_be(),
+            trigger_addr: REMOTE_IP.to_bits().to_be(),
+            port: LAN_PORT.to_be(),
+            trigger_port: 443u16.to_be(),
+            generation: 1,
+            _pad: 0,
+            is_allow_reuse: 0,
+        };
+        skel.maps
+            .nat4_ingress_dyn_map
+            .update(
+                unsafe { plain::as_bytes(&ingress_key) },
+                unsafe { plain::as_bytes(&ingress_val) },
+                MapFlags::ANY,
+            )
+            .unwrap();
+
+        let egress_key = NatMappingKeyV4 {
+            gress: NAT_MAPPING_EGRESS,
+            l4proto: 6,
+            from_port: LAN_PORT.to_be(),
+            from_addr: LAN_HOST.to_bits().to_be(),
+        };
+        let mut egress_val = types::nat4_egress_mapping_value_v3::default();
+        egress_val.addr = WAN_IP.to_bits().to_be();
+        egress_val.trigger_addr = REMOTE_IP.to_bits().to_be();
+        egress_val.port = NAT_PORT.to_be();
+        egress_val.trigger_port = 443u16.to_be();
+        egress_val.is_allow_reuse = 0;
+        skel.maps
+            .nat4_egress_dyn_map
+            .update(
+                unsafe { plain::as_bytes(&egress_key) },
+                unsafe { plain::as_bytes(&egress_val) },
+                MapFlags::ANY,
+            )
+            .unwrap();
+
+        // Packet from the trigger address — passes the lookup trigger check,
+        // but nat4_v3_dyn_can_create_ct rejects it because is_allow_reuse == 0.
+        let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
+        let mut ctx = TestSkb::default();
+        ctx.ifindex = IFINDEX;
+
+        let mut packet_out = vec![0u8; pkt.len()];
+        let input = ProgramInput {
+            data_in: Some(&mut pkt),
+            context_in: Some(ctx.as_mut_bytes()),
+            data_out: Some(&mut packet_out),
+            ..Default::default()
+        };
+
+        let result = skel.progs.tc_nat_wan_ingress.test_run(input).expect("test_run failed");
+        assert_eq!(result.return_value as i32, 2, "is_allow_reuse=0 should prevent CT creation");
+    }
+
+    #[test]
     fn tcp_egress_static_v3_creates_ct_without_dynamic_state() {
         let _guard = NAT_V3_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let mut builder = TcNatSkelBuilder::default();

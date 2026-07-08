@@ -289,6 +289,12 @@ static __always_inline void xdp_nat4_metric_accumulate(void *data, void *data_en
     }
 }
 
+static __always_inline enum ct_ingress_resolve
+xdp_nat4_ct_ingress_resolve(const struct nat_timer_key_v4 *ct_key,
+                            struct nat4_timer_value_v3 **ct_out) {
+    return nat4_ct_ingress_resolve(ct_key, ct_out);
+}
+
 static __always_inline int xdp_nat4_ct_resolve(const struct nat_timer_key_v4 *ct_key,
                                                struct nat4_mapping_value_v3 *dyn_ingress,
                                                struct nat4_timer_value_v3 **ct_out) {
@@ -492,20 +498,6 @@ xdp_nat4_dyn_ingress_lookup_and_check(u8 ip_protocol, const struct inet4_pair *p
     struct nat4_mapping_value_v3 *dynamic_value =
         bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
     if (!dynamic_value) return -1;
-
-    struct nat_mapping_key_v4 egress_key = {
-        .gress = NAT_MAPPING_EGRESS,
-        .l4proto = ip_protocol,
-        .from_port = dynamic_value->port,
-        .from_addr = dynamic_value->addr,
-    };
-    struct nat4_egress_mapping_value_v3 *egress_value =
-        bpf_map_lookup_elem(&nat4_egress_dyn_map, &egress_key);
-    if (!egress_value || egress_value->addr != pkt_ip_pair->dst_addr.addr ||
-        egress_value->port != pkt_ip_pair->dst_port) {
-        bpf_map_delete_elem(&nat4_ingress_dyn_map, &ingress_key);
-        return -1;
-    }
 
     if (dynamic_value->is_allow_reuse == 0 && ip_protocol != IPPROTO_ICMP) {
         if (pkt_ip_pair->src_addr.addr != dynamic_value->trigger_addr ||

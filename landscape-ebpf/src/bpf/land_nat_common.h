@@ -101,6 +101,7 @@ struct nat_timer_value_v6 {
 
 enum timer_status {
     TIMER_INIT = 0ULL,
+    TIMER_PENDING_REF = 10ULL,
     TIMER_ACTIVE = 20ULL,
     TIMER_TIMEOUT_1 = 30ULL,
     TIMER_TIMEOUT_2 = 31ULL,

@@ -20,6 +20,16 @@ char LICENSE[] SEC("license") = "GPL";
 
 const volatile u32 current_ifindex = 0;
 
+static __always_inline void xdp_apply_ingress_static_mark(struct xdp_md *ctx,
+                                                          struct xdp_pipe_meta *meta, void *data) {
+    meta->mark = replace_cache_mask(meta->mark, INGRESS_STATIC_MARK);
+    void *dm = (void *)(long)ctx->data_meta;
+    if ((void *)(dm + sizeof(*meta)) <= data)
+        __builtin_memcpy(dm, meta, sizeof(*meta));
+    else
+        xdp_set_meta(ctx, meta);
+}
+
 static __always_inline int nat_v4_egress(struct xdp_md *ctx) {
 #define BPF_LOG_TOPIC "nat_v4_egress"
     void *data = (void *)(long)ctx->data;
@@ -147,34 +157,7 @@ static __always_inline int nat_v4_ingress(struct xdp_md *ctx) {
 
     struct nat4_lan_result result = {};
     struct nat4_mapping_value_v3 *dyn_ingress = NULL;
-
-    bool do_new_ct;
-    ret = xdp_nat4_st_ingress_lookup(nat_l4_protocol, &ip_pair, &result);
-    if (ret == 0) {
-        meta.mark = replace_cache_mask(meta.mark, INGRESS_STATIC_MARK);
-        void *dm = (void *)(long)ctx->data_meta;
-        if ((void *)(dm + sizeof(meta)) <= data)
-            __builtin_memcpy(dm, &meta, sizeof(meta));
-        else
-            xdp_set_meta(ctx, &meta);
-        do_new_ct = !is_icmp_error && pkt_can_begin_ct(idx.pkt_type);
-    } else {
-        ret =
-            xdp_nat4_dyn_ingress_lookup_and_check(nat_l4_protocol, &ip_pair, &result, &dyn_ingress);
-        if (ret) return XDP_DROP;
-        u64 sr = dyn_ingress->state_ref;
-        do_new_ct = (dyn_ingress->is_allow_reuse && nat4_v3_state_get(sr) == NAT4_V3_STATE_ACTIVE &&
-                     nat4_v3_ref_get(sr) > 0 && !is_icmp_error && pkt_can_begin_ct(idx.pkt_type));
-    }
-
-    struct inet4_addr lan_ip = {0};
-    __be16 lan_port;
-    if (dyn_ingress == NULL && result.lan_addr == 0) {
-        lan_ip.addr = ip_pair.dst_addr.addr;
-    } else {
-        lan_ip.addr = result.lan_addr;
-    }
-    lan_port = result.lan_port;
+    struct nat_action_v4 action = {0};
 
     struct nat_timer_key_v4 ct_key = {0};
     ct_key.l4proto = nat_l4_protocol;
@@ -184,14 +167,46 @@ static __always_inline int nat_v4_ingress(struct xdp_md *ctx) {
     ct_key.pair_ip.dst_port = ip_pair.dst_port;
 
     struct nat4_timer_value_v3 *ct_value = NULL;
-    ret = xdp_nat4_ct_resolve(&ct_key, dyn_ingress, &ct_value);
-    if (ret && do_new_ct) {
-        ret = xdp_nat4_ct_create(meta.mark, current_ifindex, &ct_key, &lan_ip, lan_port,
-                                 NAT_MAPPING_INGRESS, dyn_ingress, &ct_value);
-        if (ret) return XDP_DROP;
-    } else if (ret) {
+
+    enum ct_ingress_resolve cr = xdp_nat4_ct_ingress_resolve(&ct_key, &ct_value);
+    if (cr == CT_RESOLVE_UNUSABLE) {
         return XDP_DROP;
     }
+    if (cr == CT_RESOLVE_OK) {
+        if (ct_value->is_static) {
+            xdp_apply_ingress_static_mark(ctx, &meta, data);
+        }
+        action.to_addr.addr = ct_value->client_addr.addr;
+        action.to_port = ct_value->client_port;
+        goto translate;
+    }
+
+    bool allow_create_ct = !is_icmp_error && pkt_can_begin_ct(idx.pkt_type);
+    if (!allow_create_ct) return XDP_DROP;
+
+    ret = xdp_nat4_st_ingress_lookup(nat_l4_protocol, &ip_pair, &result);
+    if (ret == 0) {
+        xdp_apply_ingress_static_mark(ctx, &meta, data);
+    } else {
+        ret =
+            xdp_nat4_dyn_ingress_lookup_and_check(nat_l4_protocol, &ip_pair, &result, &dyn_ingress);
+        if (ret) return XDP_DROP;
+        if (!nat4_v3_dyn_can_create_ct(dyn_ingress)) return XDP_DROP;
+    }
+
+    if (dyn_ingress == NULL && result.lan_addr == 0) {
+        action.to_addr.addr = ip_pair.dst_addr.addr;
+    } else {
+        action.to_addr.addr = result.lan_addr;
+    }
+    action.to_port = result.lan_port;
+    ret = xdp_nat4_ct_create(meta.mark, current_ifindex, &ct_key, &action.to_addr, result.lan_port,
+                             NAT_MAPPING_INGRESS, dyn_ingress, &ct_value);
+    if (ret) return XDP_DROP;
+
+translate:
+    action.from_addr = ip_pair.dst_addr;
+    action.from_port = ip_pair.dst_port;
 
     if (!is_icmp_error) {
         nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, nat4_v3_timer_base(ct_value));
@@ -199,13 +214,6 @@ static __always_inline int nat_v4_ingress(struct xdp_md *ctx) {
         data_end = (void *)(long)ctx->data_end;
         xdp_nat4_metric_accumulate(data, data_end, ct_value, true);
     }
-
-    struct nat_action_v4 action = {
-        .from_addr = ip_pair.dst_addr,
-        .from_port = ip_pair.dst_port,
-        .to_addr = lan_ip,
-        .to_port = lan_port,
-    };
 
     data = (void *)(long)ctx->data;
     data_end = (void *)(long)ctx->data_end;
