@@ -86,8 +86,8 @@ static __always_inline int tc_nat_v4_egress_do(struct __sk_buff *skb, u32 ifinde
     }
 
     if (!is_icmpx_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, nat4_v3_timer_base(ct_value));
-        nat_metric_accumulate(skb, false, nat4_v3_timer_base(ct_value));
+        nat_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, ct_value);
+        nat_metric_accumulate(skb, false, ct_value);
     }
 
     struct nat_action_v4 action = {
@@ -187,8 +187,8 @@ translate:
     action.from_port = ip_pair.dst_port;
 
     if (!is_icmpx_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, nat4_v3_timer_base(ct_value));
-        nat_metric_accumulate(skb, true, nat4_v3_timer_base(ct_value));
+        nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, ct_value);
+        nat_metric_accumulate(skb, true, ct_value);
     }
 
     ret = modify_headers_v4(skb, is_icmpx_error, nat_l4_protocol, current_l3_offset, idx.l4_offset,

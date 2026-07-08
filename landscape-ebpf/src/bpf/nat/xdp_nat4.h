@@ -7,7 +7,8 @@
 
 #include "../landscape.h"
 #include "nat_common.h"
-#include "tc_nat4.h"
+#include "nat4_map_ops.h"
+#include "nat4_ct_timer.h"
 #include "../land_wan_ip.h"
 #include "../scanner/xdp_scanner4.h"
 #include "../fragment/frag_common.h"

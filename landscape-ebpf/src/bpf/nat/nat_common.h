@@ -121,6 +121,11 @@ static __always_inline bool pkt_can_begin_ct(u8 pkt_type) {
     return pkt_type == PKT_CONNLESS_V2 || pkt_type == PKT_TCP_SYN_V2;
 }
 
+static __always_inline bool ct_try_set_status(u64 *status_in_value, u64 curr_state,
+                                              u64 next_state) {
+    return __sync_bool_compare_and_swap(status_in_value, curr_state, next_state);
+}
+
 struct nat_action_v4 {
     struct inet4_addr from_addr;
     __be16 from_port;

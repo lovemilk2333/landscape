@@ -102,7 +102,7 @@ static __always_inline int nat_v4_egress(struct xdp_md *ctx) {
     }
 
     if (!is_icmp_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, nat4_v3_timer_base(ct_value));
+        nat_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, ct_value);
         data = (void *)(long)ctx->data;
         data_end = (void *)(long)ctx->data_end;
         xdp_nat4_metric_accumulate(data, data_end, ct_value, false);
@@ -209,7 +209,7 @@ translate:
     action.from_port = ip_pair.dst_port;
 
     if (!is_icmp_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, nat4_v3_timer_base(ct_value));
+        nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, ct_value);
         data = (void *)(long)ctx->data;
         data_end = (void *)(long)ctx->data_end;
         xdp_nat4_metric_accumulate(data, data_end, ct_value, true);
