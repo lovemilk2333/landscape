@@ -327,6 +327,7 @@ xdp_nat4_ct_create(u32 mark, u32 ifindex, const struct nat_timer_key_v4 *ct_key,
     nv.cpu_id = bpf_get_smp_processor_id();
     nv.ifindex = ifindex;
     nv.generation_snapshot = gen_snap;
+    nv.is_static = dyn_ingress == NULL ? 1 : 0;
     nv.status = track_ref ? TIMER_PENDING_REF : TIMER_INIT;
 
     struct nat4_timer_value_v3 *tv = nat4_v3_insert_ct(ct_key, &nv);

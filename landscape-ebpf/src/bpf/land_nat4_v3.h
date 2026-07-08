@@ -600,6 +600,7 @@ static __always_inline int nat4_ct_create(struct __sk_buff *skb, u32 ifindex,
     new_value.cpu_id = bpf_get_smp_processor_id();
     new_value.ifindex = ifindex;
     new_value.generation_snapshot = generation_snapshot;
+    new_value.is_static = dyn_ingress == NULL ? 1 : 0;
     new_value.status = track_dynamic_ref ? TIMER_PENDING_REF : TIMER_INIT;
 
     struct nat4_timer_value_v3 *timer_value = nat4_v3_insert_ct(ct_key, &new_value);
