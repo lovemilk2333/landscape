@@ -1,5 +1,12 @@
 import type { AxiosInstance, AxiosRequestConfig } from "axios";
 
+export type LandscapeApiOptions = {
+  /** When true, suppress error toast messages for this request. */
+  silent?: boolean;
+  /** AbortSignal to cancel the request. */
+  signal?: AbortSignal;
+};
+
 let _axiosInstance: AxiosInstance;
 
 /**
@@ -39,6 +46,7 @@ type ExtractData<T> = T extends { data?: infer D } ? NonNullable<D> : T;
  */
 export const customInstance = <T>(
   config: AxiosRequestConfig,
+  options?: LandscapeApiOptions,
 ): Promise<ExtractData<T>> => {
   if (!_axiosInstance) {
     throw new Error(
@@ -47,7 +55,7 @@ export const customInstance = <T>(
   }
   // The axios response interceptor already returns response.data (the API body),
   // which is { data: T, error_id, message, args }. We extract .data here.
-  return _axiosInstance(config).then(
+  return _axiosInstance({ ...config, ...options }).then(
     (res: any) => res.data as ExtractData<T>,
   );
 };

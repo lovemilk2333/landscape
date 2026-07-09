@@ -75,7 +75,7 @@ export function applyInterceptors(instance: AxiosInstance): AxiosInstance {
             ? (i18n.global.t(errorKey, args || {}) as string)
             : message;
 
-        if (displayMsg && window.$message) {
+        if (displayMsg && window.$message && !error.config?.silent) {
           window.$message.error(displayMsg);
         }
         return Promise.reject(error.response.data);
