@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ZoneType } from "@/lib/service_ipconfig";
 import { Wifi } from "@vicons/carbon";
 
 import StatusBtn from "@/components/status_btn/StatusBtn.vue";

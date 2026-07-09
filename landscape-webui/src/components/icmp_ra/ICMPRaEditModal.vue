@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { FormInst, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
-import { ZoneType } from "@/lib/service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import ConfigModal from "@/components/common/ConfigModal.vue";
 import { useIPv6PDStore } from "@/stores/status_ipv6pd";
 import {
@@ -34,7 +34,7 @@ const formRef = ref<FormInst | null>(null);
 const iface_info = defineProps<{
   iface_name: string;
   mac?: string;
-  zone: ZoneType;
+  zone: IfaceZoneType;
 }>();
 
 const service_config = ref<LanIPv6ServiceConfigV2>();

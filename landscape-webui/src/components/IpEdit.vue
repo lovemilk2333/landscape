@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { isIP, isIPv4, isIPv6 } from "is-ip";
-const ip = defineModel<string | undefined>("ip", { required: true });
+const ip = defineModel<string | null | undefined>("ip", { required: true });
 const mask = defineModel<number | undefined>("mask");
 
 interface Props {

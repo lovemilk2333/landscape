@@ -13,7 +13,7 @@ import FlowNode from "@/components/topology/FlowNode.vue";
 import TopologyDetailPanel from "@/components/topology/TopologyDetailPanel.vue";
 import { NetDev, WLANTypeTag } from "@/lib/dev";
 import { getBridgeAttachIssue } from "@/lib/topology";
-import { ZoneType } from "@/lib/service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import { useIfaceNodeStore } from "@/stores/iface_node";
 import { useMetricStore } from "@/stores/status_metric";
 
@@ -207,11 +207,11 @@ function miniMapNodeColor(node: any) {
     return changeColor(themeVars.value.textColor3, { alpha: 0.78 });
   }
 
-  if (dev?.zone_type === ZoneType.Wan) {
+  if (dev?.zone_type === IfaceZoneType.wan) {
     return changeColor(themeVars.value.warningColor, { alpha: 0.88 });
   }
 
-  if (dev?.zone_type === ZoneType.Lan) {
+  if (dev?.zone_type === IfaceZoneType.lan) {
     return changeColor(themeVars.value.infoColor, { alpha: 0.88 });
   }
 

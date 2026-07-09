@@ -2,7 +2,6 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ConfigModal from "@/components/common/ConfigModal.vue";
-import { ZoneType, IfaceIpMode } from "@/lib/service_ipconfig";
 import { WifiServiceConfig } from "@/lib/wifi";
 import { useWifiConfigStore } from "@/stores/status_wifi";
 import { get_iface_wifi_config, update_wifi_config } from "@/api/service_wifi";

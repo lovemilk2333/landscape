@@ -19,7 +19,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 import { DevStateType, NetDev } from "@/lib/dev";
-import { ZoneType } from "@/lib/service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import { formatPackets, formatRate } from "@/lib/util";
 import {
   ServiceExhibitSwitch,
@@ -122,10 +122,10 @@ const status_type = computed(() => {
 });
 
 const zone_type = computed(() => {
-  if (props.node.zone_type === ZoneType.Wan) {
+  if (props.node.zone_type === IfaceZoneType.wan) {
     return "warning";
   }
-  if (props.node.zone_type === ZoneType.Lan) {
+  if (props.node.zone_type === IfaceZoneType.lan) {
     return "info";
   }
   return "default";
@@ -147,7 +147,7 @@ const role_tags = computed(() => {
   return tags.slice(0, 2);
 });
 
-const is_wan_node = computed(() => props.node.zone_type === ZoneType.Wan);
+const is_wan_node = computed(() => props.node.zone_type === IfaceZoneType.wan);
 const node_width = computed(() => (is_wan_node.value ? 235 : 235));
 const title_max_width = computed(
   () => `${Math.max(node_width.value - 126, 140)}px`,

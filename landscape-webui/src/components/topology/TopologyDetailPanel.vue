@@ -9,7 +9,7 @@ import {
   delete_bridge,
 } from "@/api/network";
 import { DevStateType, NetDev, WifiMode, WLANTypeTag } from "@/lib/dev";
-import { ZoneType } from "@/lib/service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import {
   canManageBridgeAttachment,
   getBridgeAttachIssue,
@@ -75,7 +75,8 @@ const can_manage_controller = computed(() =>
 );
 const can_attach_bridge = computed(
   () =>
-    can_manage_controller.value && props.node.zone_type === ZoneType.Undefined,
+    can_manage_controller.value &&
+    props.node.zone_type === IfaceZoneType.undefined,
 );
 const can_manage_device_state = computed(() => props.node.dev_type !== "ppp");
 const controller_hint = computed(() => {
@@ -217,11 +218,11 @@ function zoneActionClass(action_key: string) {
     return undefined;
   }
 
-  if (props.node.zone_type === ZoneType.Wan) {
+  if (props.node.zone_type === IfaceZoneType.wan) {
     return "is-wan";
   }
 
-  if (props.node.zone_type === ZoneType.Lan) {
+  if (props.node.zone_type === IfaceZoneType.lan) {
     return "is-lan";
   }
 
@@ -258,11 +259,11 @@ function statusTagType(state: string) {
   return "warning";
 }
 
-function zoneTagType(zone: ZoneType) {
-  if (zone === ZoneType.Wan) {
+function zoneTagType(zone: IfaceZoneType) {
+  if (zone === IfaceZoneType.wan) {
     return "warning";
   }
-  if (zone === ZoneType.Lan) {
+  if (zone === IfaceZoneType.lan) {
     return "info";
   }
   return "default";

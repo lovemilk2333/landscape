@@ -1,6 +1,6 @@
 import { ifaces } from "@/api/network";
 import { DevStateType, NetDev } from "@/lib/dev";
-import { ZoneType } from "@/lib/service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 
@@ -21,11 +21,11 @@ const MIN_GRAPH_WIDTH = 940;
 const MAX_GRAPH_WIDTH = 1480;
 
 function sort_devices(devs: NetDev[]) {
-  const zone_rank = (zone: ZoneType) => {
+  const zone_rank = (zone: IfaceZoneType) => {
     switch (zone) {
-      case ZoneType.Wan:
+      case IfaceZoneType.wan:
         return 0;
-      case ZoneType.Lan:
+      case IfaceZoneType.lan:
         return 1;
       default:
         return 2;
@@ -122,7 +122,7 @@ export const useIfaceNodeStore = defineStore(
               value: each.name,
               ifindex: each.index,
             });
-          } else if (each.zone_type !== ZoneType.Wan) {
+          } else if (each.zone_type !== IfaceZoneType.wan) {
             new_eths.push({
               label: each.name,
               value: each.name,
@@ -198,10 +198,10 @@ export const useIfaceNodeStore = defineStore(
           !device_map.has(each.controller_id);
 
         const wan_roots = new_value.filter(
-          (each) => each.zone_type === ZoneType.Wan && is_root(each),
+          (each) => each.zone_type === IfaceZoneType.wan && is_root(each),
         );
         const core_roots = new_value.filter(
-          (each) => each.zone_type !== ZoneType.Wan && is_root(each),
+          (each) => each.zone_type !== IfaceZoneType.wan && is_root(each),
         );
 
         const get_subtree_height = (each: NetDev): number => {

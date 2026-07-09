@@ -1,5 +1,5 @@
 import { NetDev, WLANTypeTag } from "./dev";
-import { ZoneType } from "./service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 
 export type ServiceStatus =
   | { t: "staring" }
@@ -120,7 +120,7 @@ export class ServiceExhibitSwitch {
         this.station = true;
       } else if (dev.wifi_info.wifi_type.t == WLANTypeTag.Ap) {
         // WiFi AP mode only allowed in LAN or Undefined zone, not WAN
-        if (dev.zone_type !== ZoneType.Wan) {
+        if (dev.zone_type !== IfaceZoneType.wan) {
           this.wifi = true;
         }
       }
@@ -150,12 +150,12 @@ export class ServiceExhibitSwitch {
       this.zone_type = false;
       this.ip_config = false;
       this.lan_ipv6 = true;
-    } else if (dev.zone_type === ZoneType.Lan) {
+    } else if (dev.zone_type === IfaceZoneType.lan) {
       this.dhcp_v4 = true;
       this.ip_config = false;
       this.lan_ipv6 = true;
       this.route_lan = true;
-    } else if (dev.zone_type === ZoneType.Wan) {
+    } else if (dev.zone_type === IfaceZoneType.wan) {
       this.pppd = true;
       this.ip_config = true;
       this.nat_config = true;

@@ -1,4 +1,4 @@
-import { ZoneType } from "./service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 
 export class NetDev {
   name: string;
@@ -11,7 +11,7 @@ export class NetDev {
   controller_name: string | undefined;
   controller_id: number | undefined;
   carrier: boolean;
-  zone_type: ZoneType;
+  zone_type: IfaceZoneType;
   enable_in_boot: boolean;
 
   netns_id: number | undefined;
@@ -54,11 +54,11 @@ export class NetDev {
       return false;
     }
 
-    if (this.zone_type == ZoneType.Wan) {
+    if (this.zone_type == IfaceZoneType.wan) {
       return false;
-    } else if (this.zone_type == ZoneType.Lan) {
+    } else if (this.zone_type == IfaceZoneType.lan) {
       return false;
-    } else if (this.zone_type == ZoneType.Undefined) {
+    } else if (this.zone_type == IfaceZoneType.undefined) {
       return true;
     }
   }

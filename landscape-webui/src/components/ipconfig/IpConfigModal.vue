@@ -3,11 +3,7 @@ import {
   get_iface_server_config,
   update_iface_server_config,
 } from "@/api/service_ipconfig";
-import {
-  IfaceIpServiceConfig,
-  ZoneType,
-  IfaceIpMode,
-} from "@/lib/service_ipconfig";
+import { IfaceIpServiceConfig, IfaceIpMode } from "@/lib/service_ipconfig";
 import { computed, ref } from "vue";
 import ConfigModal from "@/components/common/ConfigModal.vue";
 import IpEdit from "../IpEdit.vue";
@@ -38,7 +34,7 @@ const ip_config_options = computed(() => {
       value: IfaceIpMode.Static,
     },
   ];
-  if (iface_info.zone == ZoneType.Wan) {
+  if (iface_info.zone == IfaceZoneType.wan) {
     result.push({
       label: t("ipconfig_editor.mode_pppoe_native"),
       value: IfaceIpMode.PPPoE,
@@ -69,9 +65,9 @@ async function update_mode() {
     try {
       if (
         iface_data.value.ip_model.t === IfaceIpMode.PPPoE &&
-        (iface_data.value.ip_model as any).ac_name === ""
+        iface_data.value.ip_model.ac_name === ""
       ) {
-        (iface_data.value.ip_model as any).ac_name = undefined;
+        iface_data.value.ip_model.ac_name = null;
       }
       let config = await update_iface_server_config(iface_data.value);
       emit("refresh");
@@ -90,7 +86,7 @@ function select_ip_model(value: IfaceIpMode) {
       default_router: false,
       ipv4: "0.0.0.0",
       ipv4_mask: 24,
-      ipv6: undefined,
+      ipv6: null,
     };
   } else if (value === IfaceIpMode.PPPoE) {
     iface_data.value.ip_model = {
@@ -99,13 +95,14 @@ function select_ip_model(value: IfaceIpMode) {
       username: "",
       password: "",
       mtu: 1492,
-      ac_name: undefined,
+      ac_name: null,
     };
   } else if (value === IfaceIpMode.DHCPClient) {
     iface_data.value.ip_model = {
       t: IfaceIpMode.DHCPClient,
       default_router: false,
-      hostname: undefined,
+      hostname: null,
+      custome_opts: [],
     };
   }
 }
@@ -142,7 +139,7 @@ function select_ip_model(value: IfaceIpMode) {
                 ></IpEdit>
               </n-form-item-gi>
               <n-form-item-gi
-                v-if="iface_info.zone == ZoneType.Wan"
+                v-if="iface_info.zone == IfaceZoneType.wan"
                 :label="t('ipconfig_editor.set_default_route')"
                 :span="5"
               >
@@ -156,7 +153,7 @@ function select_ip_model(value: IfaceIpMode) {
                 </n-switch>
               </n-form-item-gi>
               <n-form-item-gi
-                v-if="iface_info.zone == ZoneType.Wan"
+                v-if="iface_info.zone == IfaceZoneType.wan"
                 :label="t('ipconfig_editor.route_ip')"
                 :span="5"
               >

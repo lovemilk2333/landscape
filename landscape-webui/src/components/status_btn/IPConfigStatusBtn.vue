@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useIpConfigStore } from "@/stores/status_ipconfig";
-import { ZoneType } from "@/lib/service_ipconfig";
 import { NetworkPublic, Cloud, NetworkEnterprise } from "@vicons/carbon";
 
 import StatusBtn from "@/components/status_btn/StatusBtn.vue";
@@ -21,10 +20,10 @@ const emit = defineEmits(["click"]);
 <template>
   <StatusBtn :status="status" @click="emit('click')">
     <template #btn-icon>
-      <n-icon v-if="iface_info.zone == ZoneType.Wan">
+      <n-icon v-if="iface_info.zone == IfaceZoneType.wan">
         <NetworkPublic></NetworkPublic>
       </n-icon>
-      <n-icon v-else-if="iface_info.zone == ZoneType.Lan">
+      <n-icon v-else-if="iface_info.zone == IfaceZoneType.lan">
         <NetworkEnterprise></NetworkEnterprise>
       </n-icon>
       <n-icon v-else>

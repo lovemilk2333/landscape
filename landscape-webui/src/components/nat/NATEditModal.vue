@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ZoneType, IfaceIpMode } from "@/lib/service_ipconfig";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import ConfigModal from "@/components/common/ConfigModal.vue";

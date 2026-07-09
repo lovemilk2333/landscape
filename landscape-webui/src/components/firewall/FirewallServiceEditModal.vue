@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ZoneType, IfaceIpMode } from "@/lib/service_ipconfig";
 import ConfigModal from "@/components/common/ConfigModal.vue";
 import { FirewallServiceConfig } from "@/lib/firewall";
 import { useFirewallConfigStore } from "@/stores/status_firewall";

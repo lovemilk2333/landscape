@@ -3,7 +3,6 @@ import { computed, ref } from "vue";
 import { useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import ConfigModal from "@/components/common/ConfigModal.vue";
-import { ZoneType, IfaceIpMode } from "@/lib/service_ipconfig";
 import { IPV6PDConfig, IPV6PDServiceConfig } from "@/lib/ipv6pd";
 import {
   get_iface_ipv6pd_config,

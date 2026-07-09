@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ZoneType } from "@/lib/service_ipconfig";
 import { Ad } from "@vicons/tabler";
 
 import StatusBtn from "@/components/status_btn/StatusBtn.vue";

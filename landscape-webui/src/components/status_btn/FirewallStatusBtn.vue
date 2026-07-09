@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ZoneType } from "@/lib/service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import { Wall } from "@vicons/tabler";
 
 import StatusBtn from "@/components/status_btn/StatusBtn.vue";
@@ -9,7 +9,7 @@ const firewallConfigStore = useFirewallConfigStore();
 
 const iface_info = defineProps<{
   iface_name: string;
-  zone: ZoneType;
+  zone: IfaceZoneType;
 }>();
 
 const status = firewallConfigStore.GET_STATUS_BY_IFACE_NAME(

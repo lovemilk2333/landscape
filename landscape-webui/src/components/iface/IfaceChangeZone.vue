@@ -9,7 +9,6 @@ import { stop_and_del_iface_config } from "@/api/service_ipconfig";
 import { stop_and_del_iface_ipv6pd } from "@/api/service_ipv6pd";
 import { stop_and_del_iface_nat } from "@/api/service_nat";
 import { delete_and_stop_iface_pppd_by_attach_iface_name } from "@/api/service_pppd";
-import { ZoneType } from "@/lib/service_ipconfig";
 import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 import IfaceDisableGuardModal from "@/components/iface/IfaceDisableGuardModal.vue";
 import { ref } from "vue";
@@ -79,9 +78,9 @@ function reflush_zone() {
           </n-alert>
           <n-flex justify="center">
             <n-radio-group v-model:value="temp_zone" name="iface_service_type">
-              <n-radio-button :value="ZoneType.Wan" label="WAN" />
-              <n-radio-button :value="ZoneType.Lan" label="LAN" />
-              <n-radio-button :value="ZoneType.Undefined" label="未定义" />
+              <n-radio-button :value="IfaceZoneType.wan" label="WAN" />
+              <n-radio-button :value="IfaceZoneType.lan" label="LAN" />
+              <n-radio-button :value="IfaceZoneType.undefined" label="未定义" />
             </n-radio-group>
           </n-flex>
         </n-flex>

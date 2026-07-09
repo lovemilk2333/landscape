@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ZoneType } from "@/lib/service_ipconfig";
 import { ImportExportRound } from "@vicons/material";
 
 import StatusBtn from "@/components/status_btn/StatusBtn.vue";
@@ -20,7 +19,7 @@ const emit = defineEmits(["click"]);
 
 <template>
   <StatusBtn
-    v-if="iface_info.zone === ZoneType.Wan"
+    v-if="iface_info.zone === IfaceZoneType.wan"
     :status="status"
     @click="emit('click')"
   >

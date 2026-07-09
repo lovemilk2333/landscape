@@ -1,5 +1,5 @@
 import { NetDev, WLANTypeTag } from "./dev";
-import { ZoneType } from "./service_ipconfig";
+import { IfaceZoneType } from "@landscape-router/types/api/schemas";
 
 export type BridgeAttachIssue =
   | "device_not_found"
@@ -13,7 +13,7 @@ export function canManageBridgeAttachment(dev: NetDev) {
     return false;
   }
 
-  return dev.zone_type !== ZoneType.Wan;
+  return dev.zone_type !== IfaceZoneType.wan;
 }
 
 export function getBridgeAttachIssue(
@@ -36,7 +36,7 @@ export function getBridgeAttachIssue(
     return "device_has_parent";
   }
 
-  if (child.zone_type !== ZoneType.Undefined) {
+  if (child.zone_type !== IfaceZoneType.undefined) {
     return "connect_unavailable";
   }
 
