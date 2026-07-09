@@ -60,7 +60,7 @@ static __always_inline int nat_v4_egress(struct xdp_md *ctx) {
     u8 nat_l4_protocol = is_icmp_error ? idx.icmp_error_l4_protocol : idx.l4_protocol;
     bool allow_create_mapping = !is_icmp_error && pkt_can_begin_ct(idx.pkt_type);
 
-    struct nat4_egress_nat_result result = {};
+    struct nat4_egress_result result = {};
     struct nat4_mapping_value_v3 *dyn_ingress = NULL;
     struct nat4_port_queue_value_v3 alloc_item = {};
 
@@ -73,7 +73,7 @@ static __always_inline int nat_v4_egress(struct xdp_md *ctx) {
         if (ret) return XDP_DROP;
     }
 
-    struct nat_timer_key_v4 ct_key = {0};
+    struct nat4_timer_key ct_key = {0};
     ct_key.l4proto = nat_l4_protocol;
     ct_key.pair_ip.src_addr = ip_pair.dst_addr;
     ct_key.pair_ip.src_port = ip_pair.dst_port;
@@ -90,10 +90,10 @@ static __always_inline int nat_v4_egress(struct xdp_md *ctx) {
                                  NAT_MAPPING_EGRESS, dyn_ingress, &ct_value);
         if (ret) {
             if (result.is_created && dyn_ingress &&
-                dyn_ingress->state_ref == nat4_v3_state_make(NAT4_V3_STATE_ACTIVE, 0)) {
-                nat4_v3_delete_mapping_pair(nat_l4_protocol, result.nat_addr, result.nat_port,
-                                            ip_pair.src_addr.addr, ip_pair.src_port);
-                (void)nat4_v3_queue_push(nat_l4_protocol, &alloc_item);
+                dyn_ingress->state_ref == nat4_state_make(NAT4_STATE_ACTIVE, 0)) {
+                nat4_delete_mapping_pair(nat_l4_protocol, result.nat_addr, result.nat_port,
+                                         ip_pair.src_addr.addr, ip_pair.src_port);
+                (void)nat4_queue_push(nat_l4_protocol, &alloc_item);
             }
             return XDP_DROP;
         }
@@ -102,13 +102,13 @@ static __always_inline int nat_v4_egress(struct xdp_md *ctx) {
     }
 
     if (!is_icmp_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, ct_value);
+        nat4_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, ct_value);
         data = (void *)(long)ctx->data;
         data_end = (void *)(long)ctx->data_end;
         xdp_nat4_metric_accumulate(data, data_end, ct_value, false);
     }
 
-    struct nat_action_v4 action = {
+    struct nat4_action action = {
         .from_addr = ip_pair.src_addr,
         .from_port = ip_pair.src_port,
         .to_addr.addr = result.nat_addr,
@@ -157,9 +157,9 @@ static __always_inline int nat_v4_ingress(struct xdp_md *ctx) {
 
     struct nat4_lan_result result = {};
     struct nat4_mapping_value_v3 *dyn_ingress = NULL;
-    struct nat_action_v4 action = {0};
+    struct nat4_action action = {0};
 
-    struct nat_timer_key_v4 ct_key = {0};
+    struct nat4_timer_key ct_key = {0};
     ct_key.l4proto = nat_l4_protocol;
     ct_key.pair_ip.src_addr = ip_pair.src_addr;
     ct_key.pair_ip.src_port = ip_pair.src_port;
@@ -191,7 +191,7 @@ static __always_inline int nat_v4_ingress(struct xdp_md *ctx) {
         ret =
             xdp_nat4_dyn_ingress_lookup_and_check(nat_l4_protocol, &ip_pair, &result, &dyn_ingress);
         if (ret) return XDP_DROP;
-        if (!nat4_v3_dyn_can_create_ct(dyn_ingress)) return XDP_DROP;
+        if (!nat4_can_create_ct(dyn_ingress)) return XDP_DROP;
     }
 
     if (dyn_ingress == NULL && result.lan_addr == 0) {
@@ -209,7 +209,7 @@ translate:
     action.from_port = ip_pair.dst_port;
 
     if (!is_icmp_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, ct_value);
+        nat4_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, ct_value);
         data = (void *)(long)ctx->data;
         data_end = (void *)(long)ctx->data_end;
         xdp_nat4_metric_accumulate(data, data_end, ct_value, true);

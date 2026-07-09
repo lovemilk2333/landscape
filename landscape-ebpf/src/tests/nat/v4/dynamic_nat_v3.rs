@@ -150,7 +150,7 @@ fn add_v3_ct<T: MapCore>(
     client_port: u16,
     gress: u8,
 ) {
-    let key = types::nat_timer_key_v4 {
+    let key = types::nat4_timer_key {
         l4proto,
         _pad: [0; 3],
         pair_ip: types::inet4_pair {
@@ -183,7 +183,7 @@ fn delete_v3_ct<T: MapCore>(
     nat_addr: Ipv4Addr,
     nat_port: u16,
 ) {
-    let key = types::nat_timer_key_v4 {
+    let key = types::nat4_timer_key {
         l4proto,
         _pad: [0; 3],
         pair_ip: types::inet4_pair {
@@ -388,7 +388,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
         delete_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
             &skel.maps.nat4_ingress_dyn_map,
@@ -409,8 +409,8 @@ mod tests {
         );
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, ALT_NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
 
         add_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
@@ -425,7 +425,7 @@ mod tests {
         );
         add_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -498,7 +498,7 @@ mod tests {
             443,
         );
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -568,7 +568,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
         delete_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
             &skel.maps.nat4_ingress_dyn_map,
@@ -589,8 +589,8 @@ mod tests {
         );
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, ALT_NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
 
         add_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
@@ -657,8 +657,8 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, NAT_PORT, 0);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, NAT_PORT, 0);
 
         add_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
@@ -721,7 +721,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
         delete_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
             &skel.maps.nat4_ingress_dyn_map,
@@ -845,7 +845,7 @@ mod tests {
             443,
         );
         add_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
 
         let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
         let mut ctx = TestSkb::default();
@@ -881,7 +881,7 @@ mod tests {
         assert_eq!(ingress.generation, GENERATION);
         assert_eq!(ingress.state_ref, ((1u64) << 56) | 2, "reuse ingress should incref state_ref");
 
-        let timer_key = types::nat_timer_key_v4 {
+        let timer_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -893,7 +893,7 @@ mod tests {
         };
         let timer_bytes = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&timer_key) }, MapFlags::ANY)
             .expect("lookup v3 ct");
         let timer_bytes = timer_bytes.expect("ingress reuse should create ct");
@@ -935,7 +935,7 @@ mod tests {
             443,
         );
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -1017,7 +1017,7 @@ mod tests {
             443,
         );
         put_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT, ((2u64) << 56) | 1);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
 
         let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
         let mut ctx = TestSkb::default();
@@ -1070,7 +1070,7 @@ mod tests {
             443,
         );
         put_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT, ((1u64) << 56) | 0);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
 
         let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
         let mut ctx = TestSkb::default();
@@ -1091,7 +1091,7 @@ mod tests {
         let ingress = read_v3_ingress_mapping(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         assert_eq!(ingress.state_ref, ((1u64) << 56) | 0);
 
-        let timer_key = types::nat_timer_key_v4 {
+        let timer_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -1103,7 +1103,7 @@ mod tests {
         };
         let timer_bytes = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&timer_key) }, MapFlags::ANY)
             .expect("lookup v3 ct");
         assert!(timer_bytes.is_none(), "active|0 ingress should not create ct");
@@ -1141,7 +1141,7 @@ mod tests {
         );
         put_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT, ((2u64) << 56) | 1);
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -1217,7 +1217,7 @@ mod tests {
         );
 
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -1228,7 +1228,7 @@ mod tests {
             NAT_MAPPING_INGRESS,
         );
 
-        let ct_key = types::nat_timer_key_v4 {
+        let ct_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -1240,7 +1240,7 @@ mod tests {
         };
         let ct_bytes = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&ct_key) }, MapFlags::ANY)
             .unwrap()
             .expect("ct should exist");
@@ -1249,7 +1249,7 @@ mod tests {
         };
         ct_value.status = 40;
         skel.maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .update(
                 unsafe { plain::as_bytes(&ct_key) },
                 unsafe { plain::as_bytes(&ct_value) },
@@ -1309,7 +1309,7 @@ mod tests {
         );
 
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -1320,7 +1320,7 @@ mod tests {
             NAT_MAPPING_INGRESS,
         );
 
-        let ct_key = types::nat_timer_key_v4 {
+        let ct_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -1332,7 +1332,7 @@ mod tests {
         };
         let ct_bytes = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&ct_key) }, MapFlags::ANY)
             .unwrap()
             .expect("ct should exist");
@@ -1341,7 +1341,7 @@ mod tests {
         };
         ct_value.status = 10;
         skel.maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .update(
                 unsafe { plain::as_bytes(&ct_key) },
                 unsafe { plain::as_bytes(&ct_value) },
@@ -1436,7 +1436,7 @@ mod tests {
             .unwrap();
 
         // Packet from the trigger address — passes the lookup trigger check,
-        // but nat4_v3_dyn_can_create_ct rejects it because is_allow_reuse == 0.
+        // but nat4_can_create_ct rejects it because is_allow_reuse == 0.
         let mut pkt = build_ipv4_tcp_syn(REMOTE_IP, WAN_IP, 443, NAT_PORT);
         let mut ctx = TestSkb::default();
         ctx.ifindex = IFINDEX;
@@ -1472,7 +1472,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,
@@ -1511,7 +1511,7 @@ mod tests {
             panic!("expected TCP transport header in output");
         }
 
-        let timer_key = types::nat_timer_key_v4 {
+        let timer_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -1523,7 +1523,7 @@ mod tests {
         };
         let timer_bytes = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&timer_key) }, MapFlags::ANY)
             .expect("lookup static v3 ct");
         let timer_bytes = timer_bytes.expect("static egress should create ct");
@@ -1552,7 +1552,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
         delete_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
             &skel.maps.nat4_ingress_dyn_map,
@@ -1582,8 +1582,8 @@ mod tests {
         );
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, ALT_NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
 
         add_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
@@ -1598,7 +1598,7 @@ mod tests {
         );
         add_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -1609,8 +1609,8 @@ mod tests {
             NAT_MAPPING_EGRESS,
         );
 
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, NAT_PORT, 0);
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, ALT_NAT_PORT, 0);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, NAT_PORT, 0);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, ALT_NAT_PORT, 0);
 
         let mut first_pkt = build_ipv4_tcp_syn(SECOND_LAN_HOST, REMOTE_IP, SECOND_LAN_PORT, 443);
         let mut ctx = TestSkb::default();
@@ -1648,7 +1648,7 @@ mod tests {
             "failed allocation should not leave a half-created egress mapping behind"
         );
         assert_eq!(
-            peek_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3),
+            peek_v3_free_port(&skel.maps.nat4_tcp_port_queue),
             Some(ALT_NAT_PORT),
             "after a failed allocation the queue advances to the next available port"
         );
@@ -1695,7 +1695,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
         delete_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
             &skel.maps.nat4_ingress_dyn_map,
@@ -1725,8 +1725,8 @@ mod tests {
         );
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, ALT_NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
 
         add_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
@@ -1741,10 +1741,10 @@ mod tests {
         );
         add_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
 
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, NAT_PORT, 0);
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, ALT_NAT_PORT, 0);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, NAT_PORT, 0);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, ALT_NAT_PORT, 0);
 
-        let stale_timer_key = types::nat_timer_key_v4 {
+        let stale_timer_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -1756,7 +1756,7 @@ mod tests {
         };
         let stale_timer = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&stale_timer_key) }, MapFlags::ANY)
             .expect("lookup stale timer");
         assert!(stale_timer.is_none(), "this scenario requires the old timer to be missing");
@@ -1781,7 +1781,7 @@ mod tests {
             "stale mapping without a timer should still block the first reissued NAT port"
         );
         assert_eq!(
-            peek_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3),
+            peek_v3_free_port(&skel.maps.nat4_tcp_port_queue),
             Some(ALT_NAT_PORT),
             "without a timer the failed stale port is removed and the next queued port becomes available"
         );
@@ -1828,7 +1828,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        clear_v3_free_port_queue(&skel.maps.nat4_tcp_free_ports_v3);
+        clear_v3_free_port_queue(&skel.maps.nat4_tcp_port_queue);
         delete_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
             &skel.maps.nat4_ingress_dyn_map,
@@ -1858,8 +1858,8 @@ mod tests {
         );
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         delete_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, ALT_NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
-        delete_v3_ct(&skel.maps.nat4_mapping_timer_v3, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, NAT_PORT);
+        delete_v3_ct(&skel.maps.nat4_timer_map, 6, REMOTE_IP, 443, WAN_IP, ALT_NAT_PORT);
 
         add_dynamic_mapping_pair(
             &skel.maps.nat4_egress_dyn_map,
@@ -1874,7 +1874,7 @@ mod tests {
         );
         add_v3_state(&skel.maps.nat4_ingress_dyn_map, 6, WAN_IP, NAT_PORT);
         add_v3_ct(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             443,
@@ -1884,8 +1884,8 @@ mod tests {
             LAN_PORT,
             NAT_MAPPING_EGRESS,
         );
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, NAT_PORT, 0);
-        push_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3, ALT_NAT_PORT, 0);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, NAT_PORT, 0);
+        push_v3_free_port(&skel.maps.nat4_tcp_port_queue, ALT_NAT_PORT, 0);
 
         let config = NatConfig {
             tcp_range: NAT_PORT..ALT_NAT_PORT,
@@ -1895,10 +1895,10 @@ mod tests {
         reset_dynamic_nat_v3_runtime_for_test(
             &skel.maps.nat4_ingress_dyn_map,
             &skel.maps.nat4_egress_dyn_map,
-            &skel.maps.nat4_mapping_timer_v3,
-            &skel.maps.nat4_tcp_free_ports_v3,
-            &skel.maps.nat4_udp_free_ports_v3,
-            &skel.maps.nat4_icmp_free_ports_v3,
+            &skel.maps.nat4_timer_map,
+            &skel.maps.nat4_tcp_port_queue,
+            &skel.maps.nat4_udp_port_queue,
+            &skel.maps.nat4_icmp_port_queue,
             &config,
         );
 
@@ -1915,7 +1915,7 @@ mod tests {
             .expect("lookup stale mapping after cleanup");
         assert!(stale_mapping.is_none(), "cleanup should remove stale dynamic mappings");
         assert_eq!(
-            peek_v3_free_port(&skel.maps.nat4_tcp_free_ports_v3),
+            peek_v3_free_port(&skel.maps.nat4_tcp_port_queue),
             Some(NAT_PORT),
             "cleanup should reseed the queue from the configured port range"
         );

@@ -46,11 +46,11 @@ fn egress_ct6_key(
     src_port: u16,
     l4proto: u8,
     prefix_len: u8,
-) -> types::nat_timer_key_v6 {
+) -> types::nat6_timer_key {
     let bytes = src.octets();
     let mut suffix = [0u8; 8];
     suffix.copy_from_slice(&bytes[8..]);
-    types::nat_timer_key_v6 {
+    types::nat6_timer_key {
         client_suffix: suffix,
         client_port: src_port.to_be(),
         id_byte: bytes[7] & npt_id_mask(prefix_len),
@@ -63,11 +63,11 @@ fn ingress_ct6_key(
     dst_port: u16,
     l4proto: u8,
     prefix_len: u8,
-) -> types::nat_timer_key_v6 {
+) -> types::nat6_timer_key {
     let bytes = dst.octets();
     let mut suffix = [0u8; 8];
     suffix.copy_from_slice(&bytes[8..]);
-    types::nat_timer_key_v6 {
+    types::nat6_timer_key {
         client_suffix: suffix,
         client_port: dst_port.to_be(),
         id_byte: bytes[7] & npt_id_mask(prefix_len),
@@ -75,12 +75,9 @@ fn ingress_ct6_key(
     }
 }
 
-fn lookup_ct6<T: MapCore>(
-    map: &T,
-    key: &types::nat_timer_key_v6,
-) -> Option<types::nat_timer_value_v6> {
+fn lookup_ct6<T: MapCore>(map: &T, key: &types::nat6_timer_key) -> Option<types::nat6_timer_value> {
     let raw = map.lookup(unsafe { plain::as_bytes(key) }, MapFlags::ANY).ok()??;
-    Some(unsafe { std::ptr::read_unaligned(raw.as_ptr().cast::<types::nat_timer_value_v6>()) })
+    Some(unsafe { std::ptr::read_unaligned(raw.as_ptr().cast::<types::nat6_timer_value>()) })
 }
 
 fn build_ipv6_udp(src: Ipv6Addr, dst: Ipv6Addr, src_port: u16, dst_port: u16) -> Vec<u8> {
@@ -124,7 +121,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -170,7 +167,7 @@ mod tests {
 
         // Verify CT was created with is_static=1
         let ct_key = egress_ct6_key(lan_host(), 80, 17, 60);
-        let ct_value = lookup_ct6(&skel.maps.nat6_conn_timer, &ct_key)
+        let ct_value = lookup_ct6(&skel.maps.nat6_timer_map, &ct_key)
             .expect("CT entry should have been created for egress");
         assert_eq!(ct_value.is_static, 1, "is_static should be 1 for static-backed CT");
         assert_eq!(ct_value.gress, crate::NAT_MAPPING_EGRESS, "gress should be EGRESS");
@@ -195,7 +192,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -242,7 +239,7 @@ mod tests {
 
         // Verify CT was created with is_static=1 (keyed by WAN destination)
         let ct_key = ingress_ct6_key(wan_npt_ip, 80, 17, 60);
-        let ct_value = lookup_ct6(&skel.maps.nat6_conn_timer, &ct_key)
+        let ct_value = lookup_ct6(&skel.maps.nat6_timer_map, &ct_key)
             .expect("CT entry should have been created for ingress");
         assert_eq!(ct_value.is_static, 1, "is_static should be 1 for static-backed ingress CT");
         assert_eq!(ct_value.gress, crate::NAT_MAPPING_INGRESS, "gress should be INGRESS",);
@@ -267,7 +264,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 0,
                 lan_port: 0,
@@ -304,7 +301,7 @@ mod tests {
         }
 
         let ct_key = egress_ct6_key(lan_host(), 443, 17, 60);
-        let ct_value = lookup_ct6(&skel.maps.nat6_conn_timer, &ct_key)
+        let ct_value = lookup_ct6(&skel.maps.nat6_timer_map, &ct_key)
             .expect("CT entry should have been created for egress with port=0 static");
         assert_eq!(ct_value.is_static, 1, "is_static should be 1 for port=0 static-backed CT");
         assert_eq!(ct_value.gress, crate::NAT_MAPPING_EGRESS, "gress should be EGRESS");
@@ -329,7 +326,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 0,
                 lan_port: 80,
@@ -367,7 +364,7 @@ mod tests {
         }
 
         let ct_key = ingress_ct6_key(wan_npt_ip, 443, 17, 60);
-        let ct_value = lookup_ct6(&skel.maps.nat6_conn_timer, &ct_key)
+        let ct_value = lookup_ct6(&skel.maps.nat6_timer_map, &ct_key)
             .expect("CT entry should have been created for ingress with port=0 static");
         assert_eq!(
             ct_value.is_static, 1,

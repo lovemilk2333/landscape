@@ -6,11 +6,10 @@
 #include "nat6_dyn_map.h"
 #include "nat6_map_ops.h"
 
-static __always_inline int nat_metric_try_report_v6(struct nat_timer_key_v6 *timer_key,
-                                                    struct nat_timer_value_v6 *timer_value,
-                                                    u8 status) {
+static __always_inline int nat6_metric_try_report(struct nat6_timer_key *timer_key,
+                                                  struct nat6_timer_value *timer_value, u8 status) {
     struct nat_conn_metric_event *event;
-    event = bpf_ringbuf_reserve(&nat_conn_metric_events, sizeof(struct nat_conn_metric_event), 0);
+    event = bpf_ringbuf_reserve(&nat_metric_events, sizeof(struct nat_conn_metric_event), 0);
     if (event == NULL) {
         return -1;
     }
@@ -41,9 +40,9 @@ static __always_inline int nat_metric_try_report_v6(struct nat_timer_key_v6 *tim
     return 0;
 }
 
-static int v6_timer_clean_callback(void *map_mapping_timer_, struct nat_timer_key_v6 *key,
-                                   struct nat_timer_value_v6 *value) {
-#define BPF_LOG_TOPIC "v6_timer_clean_callback"
+static int nat6_timer_clean_callback(void *map_mapping_timer_, struct nat6_timer_key *key,
+                                     struct nat6_timer_value *value) {
+#define BPF_LOG_TOPIC "nat6_timer_clean_callback"
 
     u64 client_status = value->client_status;
     u64 server_status = value->server_status;
@@ -62,7 +61,7 @@ static int v6_timer_clean_callback(void *map_mapping_timer_, struct nat_timer_ke
             ld_bpf_log("release CONNECT");
         }
 
-        ret = nat_metric_try_report_v6(key, value, NAT_CONN_DELETE);
+        ret = nat6_metric_try_report(key, value, NAT_CONN_DELETE);
         if (ret) {
             ld_bpf_log("call back report fail");
             bpf_timer_start(&value->timer, next_timeout, 0);
@@ -71,7 +70,7 @@ static int v6_timer_clean_callback(void *map_mapping_timer_, struct nat_timer_ke
         goto release;
     }
 
-    ret = nat_metric_try_report_v6(key, value, NAT_CONN_ACTIVE);
+    ret = nat6_metric_try_report(key, value, NAT_CONN_ACTIVE);
     if (ret) {
         ld_bpf_log("call back report fail");
         bpf_timer_start(&value->timer, next_timeout, 0);
@@ -125,28 +124,28 @@ static int v6_timer_clean_callback(void *map_mapping_timer_, struct nat_timer_ke
 
     return 0;
 release:;
-    bpf_map_delete_elem(&nat6_conn_timer, key);
+    bpf_map_delete_elem(&nat6_timer_map, key);
     return 0;
 #undef BPF_LOG_TOPIC
 }
 
-static __always_inline struct nat_timer_value_v6 *
-insert_ct6_timer(const struct nat_timer_key_v6 *key, struct nat_timer_value_v6 *val) {
-#define BPF_LOG_TOPIC "insert_ct6_timer"
+static __always_inline struct nat6_timer_value *nat6_insert_timer(const struct nat6_timer_key *key,
+                                                                  struct nat6_timer_value *val) {
+#define BPF_LOG_TOPIC "nat6_insert_timer"
 
-    int ret = bpf_map_update_elem(&nat6_conn_timer, key, val, BPF_NOEXIST);
+    int ret = bpf_map_update_elem(&nat6_timer_map, key, val, BPF_NOEXIST);
     if (ret) {
         ld_bpf_log("ct6 timer map insert failed: %d", ret);
         return NULL;
     }
-    struct nat_timer_value_v6 *value = bpf_map_lookup_elem(&nat6_conn_timer, key);
+    struct nat6_timer_value *value = bpf_map_lookup_elem(&nat6_timer_map, key);
     if (!value) return NULL;
 
-    ret = bpf_timer_init(&value->timer, &nat6_conn_timer, CLOCK_MONOTONIC);
+    ret = bpf_timer_init(&value->timer, &nat6_timer_map, CLOCK_MONOTONIC);
     if (ret) {
         goto delete_timer;
     }
-    ret = bpf_timer_set_callback(&value->timer, v6_timer_clean_callback);
+    ret = bpf_timer_set_callback(&value->timer, nat6_timer_clean_callback);
     if (ret) {
         goto delete_timer;
     }
@@ -158,14 +157,14 @@ insert_ct6_timer(const struct nat_timer_key_v6 *key, struct nat_timer_value_v6 *
     return value;
 delete_timer:
     ld_bpf_log("ct6 timer setup failed: %d", ret);
-    bpf_map_delete_elem(&nat6_conn_timer, key);
+    bpf_map_delete_elem(&nat6_timer_map, key);
     return NULL;
 #undef BPF_LOG_TOPIC
 }
 
-static __always_inline int nat_ct6_advance(u8 pkt_type, u8 gress,
-                                           struct nat_timer_value_v6 *ct_timer_value) {
-#define BPF_LOG_TOPIC "nat_ct6_advance"
+static __always_inline int nat6_ct_advance(u8 pkt_type, u8 gress,
+                                           struct nat6_timer_value *ct_timer_value) {
+#define BPF_LOG_TOPIC "nat6_ct_advance"
     u64 curr_state, *modify_status = NULL;
     if (gress == NAT_MAPPING_INGRESS) {
         curr_state = ct_timer_value->server_status;

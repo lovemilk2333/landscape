@@ -4,8 +4,8 @@
 #include "nat_common.h"
 #include "nat6_static.h"
 
-static __always_inline int get_l4_checksum_offset(u32 l4_offset, u8 l4_protocol,
-                                                  u32 *l4_checksum_offset) {
+static __always_inline int nat6_l4_checksum(u32 l4_offset, u8 l4_protocol,
+                                            u32 *l4_checksum_offset) {
     if (l4_protocol == IPPROTO_TCP) {
         *l4_checksum_offset = l4_offset + offsetof(struct tcphdr, check);
     } else if (l4_protocol == IPPROTO_UDP) {
@@ -18,8 +18,8 @@ static __always_inline int get_l4_checksum_offset(u32 l4_offset, u8 l4_protocol,
     return NAT_OP_OK;
 }
 
-static __always_inline bool is_same_prefix(const u8 prefix[8], const union u_inet_addr *a,
-                                           u8 npt_id_mask) {
+static __always_inline bool nat6_is_same_prefix(const u8 prefix[8], const union u_inet_addr *a,
+                                                u8 npt_id_mask) {
     const u8 *b = a->bits;
     u8 prefix_mask = (u8)~npt_id_mask;
     return prefix[0] == b[0] && prefix[1] == b[1] && prefix[2] == b[2] && prefix[3] == b[3] &&
@@ -28,7 +28,7 @@ static __always_inline bool is_same_prefix(const u8 prefix[8], const union u_ine
 }
 
 static __always_inline struct static_nat6_mapping_value *
-check_egress_static_mapping_exist(u8 ip_protocol, const struct inet_pair *pkt_ip_pair) {
+nat6_check_egress_static(u8 ip_protocol, const struct inet_pair *pkt_ip_pair) {
     struct static_nat6_mapping_key egress_key = {0};
     struct static_nat6_mapping_value *value;
     egress_key.l3_protocol = LANDSCAPE_IPV6_TYPE;
@@ -38,18 +38,18 @@ check_egress_static_mapping_exist(u8 ip_protocol, const struct inet_pair *pkt_ip
     COPY_ADDR_FROM(egress_key.addr.all, pkt_ip_pair->src_addr.all);
 
     egress_key.port = pkt_ip_pair->src_port;
-    value = bpf_map_lookup_elem(&nat6_static_mappings, &egress_key);
+    value = bpf_map_lookup_elem(&nat6_static_map, &egress_key);
     if (value) {
         return value;
     }
 
     egress_key.port = 0;
-    return bpf_map_lookup_elem(&nat6_static_mappings, &egress_key);
+    return bpf_map_lookup_elem(&nat6_static_map, &egress_key);
 }
 
-static __always_inline int check_ingress_mapping_exist(u8 ip_protocol,
-                                                       const struct inet_pair *pkt_ip_pair,
-                                                       __be64 *local_client_prefix) {
+static __always_inline int nat6_check_ingress_static(u8 ip_protocol,
+                                                     const struct inet_pair *pkt_ip_pair,
+                                                     __be64 *local_client_prefix) {
     struct static_nat6_mapping_key ingress_key = {0};
     struct static_nat6_mapping_value *value = NULL;
 
@@ -61,13 +61,13 @@ static __always_inline int check_ingress_mapping_exist(u8 ip_protocol,
     ingress_key.prefixlen = 96;
 
     ingress_key.port = pkt_ip_pair->dst_port;
-    value = bpf_map_lookup_elem(&nat6_static_mappings, &ingress_key);
+    value = bpf_map_lookup_elem(&nat6_static_map, &ingress_key);
     if (value) {
         goto process_mapping_value;
     }
 
     ingress_key.port = 0;
-    value = bpf_map_lookup_elem(&nat6_static_mappings, &ingress_key);
+    value = bpf_map_lookup_elem(&nat6_static_map, &ingress_key);
     if (!value) {
         return NAT6_STATIC_MISS;
     }

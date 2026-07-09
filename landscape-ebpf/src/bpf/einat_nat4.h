@@ -99,7 +99,7 @@ static __always_inline int ipv4_update_csum_icmp_err_macro(struct __sk_buff *skb
 static __always_inline int modify_headers_v4(struct __sk_buff *skb, bool is_icmpx_error, u8 nexthdr,
                                              u32 current_l3_offset, int l4_off, int err_l4_off,
                                              bool is_modify_source,
-                                             const struct nat_action_v4 *action) {
+                                             const struct nat4_action *action) {
 #define BPF_LOG_TOPIC "modify_headers_v4"
     int ret;
     int l4_to_port_off;

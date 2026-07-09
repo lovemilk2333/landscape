@@ -47,8 +47,7 @@ pub fn build_static_nat6_entries(configs: &[RuntimeStaticNatMappingV6Config]) ->
 }
 
 pub fn reconcile_static_nat6_entries(desired: RawEbpfMapEntries) -> LdEbpfResult<()> {
-    let static_nat_mappings =
-        libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.nat6_static_mappings)?;
+    let static_nat_mappings = libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.nat6_static_map)?;
     reconcile_raw_map(&static_nat_mappings, desired)
 }
 

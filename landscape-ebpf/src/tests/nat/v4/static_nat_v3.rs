@@ -80,7 +80,7 @@ fn add_ct_entry<T: MapCore>(
     client_port: u16,
     gress: u8,
 ) {
-    let key = types::nat_timer_key_v4 {
+    let key = types::nat4_timer_key {
         l4proto,
         _pad: [0; 3],
         pair_ip: types::inet4_pair {
@@ -130,7 +130,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,
@@ -139,7 +139,7 @@ mod tests {
             }],
         );
         add_ct_entry(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             9999,
@@ -200,7 +200,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,
@@ -209,7 +209,7 @@ mod tests {
             }],
         );
         add_ct_entry(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             9999,
@@ -270,7 +270,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,
@@ -279,7 +279,7 @@ mod tests {
             }],
         );
         add_ct_entry(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             9999,
@@ -341,7 +341,7 @@ mod tests {
 
         // Static mapping with lan_ip = 0.0.0.0 (passthrough / local router)
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,
@@ -382,7 +382,7 @@ mod tests {
         }
 
         // verify CT was created and stores the concrete dst (WAN_IP) as client_addr
-        let timer_key = types::nat_timer_key_v4 {
+        let timer_key = types::nat4_timer_key {
             l4proto: 6,
             _pad: [0; 3],
             pair_ip: types::inet4_pair {
@@ -394,7 +394,7 @@ mod tests {
         };
         let timer_bytes = skel
             .maps
-            .nat4_mapping_timer_v3
+            .nat4_timer_map
             .lookup(unsafe { plain::as_bytes(&timer_key) }, MapFlags::ANY)
             .expect("lookup ct");
         let timer_bytes = timer_bytes.expect("ingress should create CT");
@@ -429,7 +429,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,
@@ -438,7 +438,7 @@ mod tests {
             }],
         );
         add_ct_entry(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             6,
             REMOTE_IP,
             9999,
@@ -493,7 +493,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 5353,
                 lan_port: 53,
@@ -502,7 +502,7 @@ mod tests {
             }],
         );
         add_ct_entry(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             17,
             REMOTE_IP,
             12345,
@@ -557,7 +557,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 5353,
                 lan_port: 53,
@@ -566,7 +566,7 @@ mod tests {
             }],
         );
         add_ct_entry(
-            &skel.maps.nat4_mapping_timer_v3,
+            &skel.maps.nat4_timer_map,
             17,
             REMOTE_IP,
             12345,
@@ -621,7 +621,7 @@ mod tests {
         );
 
         add_static_nat4_mapping_v3(
-            &skel.maps.nat4_st_map,
+            &skel.maps.nat4_static_map,
             vec![StaticNatMappingV4Item {
                 wan_port: 8080,
                 lan_port: 80,

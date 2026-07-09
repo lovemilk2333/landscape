@@ -7,7 +7,7 @@
 char LICENSE[] SEC("license") = "GPL";
 
 struct nat4_timer_test_input_v3 {
-    struct nat_timer_key_v4 key;
+    struct nat4_timer_key key;
     u8 force_queue_push_fail;
     u8 _pad[3];
 };
@@ -53,7 +53,7 @@ int nat_v4_timer_step_test(struct __sk_buff *skb) {
     __builtin_memset(result, 0, sizeof(*result));
     result->queue_push_ret = -2;
 
-    struct nat4_timer_value_v3 *value = bpf_map_lookup_elem(&nat4_mapping_timer_v3, &input->key);
+    struct nat4_timer_value_v3 *value = bpf_map_lookup_elem(&nat4_timer_map, &input->key);
     if (!value) {
         return TC_ACT_OK;
     }
@@ -65,24 +65,24 @@ int nat_v4_timer_step_test(struct __sk_buff *skb) {
     int queue_push_ret = -2;
     u64 next_timeout = 0;
 
-    result->action = nat4_v3_handle_timer_step(&input->key, value, input->force_queue_push_fail,
-                                               &queue_push_ret, &next_timeout);
+    result->action = nat4_handle_timer_step(&input->key, value, input->force_queue_push_fail,
+                                            &queue_push_ret, &next_timeout);
     result->queue_push_ret = queue_push_ret;
     result->next_timeout = next_timeout;
 
-    value = bpf_map_lookup_elem(&nat4_mapping_timer_v3, &input->key);
+    value = bpf_map_lookup_elem(&nat4_timer_map, &input->key);
     result->timer_exists = value ? 1 : 0;
     if (value) {
         result->status = value->status;
     }
 
-    struct nat_mapping_key_v4 ingress_key = {
+    struct nat4_mapping_key ingress_key = {
         .gress = NAT_MAPPING_INGRESS,
         .l4proto = input->key.l4proto,
         .from_addr = nat_addr,
         .from_port = nat_port,
     };
-    struct nat_mapping_key_v4 egress_key = {
+    struct nat4_mapping_key egress_key = {
         .gress = NAT_MAPPING_EGRESS,
         .l4proto = input->key.l4proto,
         .from_addr = client_addr,

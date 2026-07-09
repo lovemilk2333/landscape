@@ -27,7 +27,7 @@ static __always_inline int tc_nat_v4_egress_do(struct __sk_buff *skb, u32 ifinde
 
     struct scan_ipv4_idx idx = {};
     struct inet4_pair ip_pair = {0};
-    struct nat4_egress_nat_result result = {};
+    struct nat4_egress_result result = {};
     struct nat4_mapping_value_v3 *dyn_ingress = NULL;
     struct nat4_port_queue_value_v3 alloc_item = {0};
     int ret = 0;
@@ -57,7 +57,7 @@ static __always_inline int tc_nat_v4_egress_do(struct __sk_buff *skb, u32 ifinde
         if (ret != TC_ACT_OK) return TC_ACT_SHOT;
     }
 
-    struct nat_timer_key_v4 ct_key = {0};
+    struct nat4_timer_key ct_key = {0};
     ct_key.l4proto = nat_l4_protocol;
     ct_key.pair_ip.src_addr = ip_pair.dst_addr;
     ct_key.pair_ip.src_port = ip_pair.dst_port;
@@ -74,10 +74,10 @@ static __always_inline int tc_nat_v4_egress_do(struct __sk_buff *skb, u32 ifinde
                              NAT_MAPPING_EGRESS, dyn_ingress, &ct_value);
         if (ret) {
             if (result.is_created && dyn_ingress &&
-                dyn_ingress->state_ref == nat4_v3_state_make(NAT4_V3_STATE_ACTIVE, 0)) {
-                nat4_v3_delete_mapping_pair(nat_l4_protocol, result.nat_addr, result.nat_port,
-                                            ip_pair.src_addr.addr, ip_pair.src_port);
-                (void)nat4_v3_queue_push(nat_l4_protocol, &alloc_item);
+                dyn_ingress->state_ref == nat4_state_make(NAT4_STATE_ACTIVE, 0)) {
+                nat4_delete_mapping_pair(nat_l4_protocol, result.nat_addr, result.nat_port,
+                                         ip_pair.src_addr.addr, ip_pair.src_port);
+                (void)nat4_queue_push(nat_l4_protocol, &alloc_item);
             }
             return TC_ACT_SHOT;
         }
@@ -86,11 +86,11 @@ static __always_inline int tc_nat_v4_egress_do(struct __sk_buff *skb, u32 ifinde
     }
 
     if (!is_icmpx_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, ct_value);
+        nat4_ct_advance(idx.pkt_type, NAT_MAPPING_EGRESS, ct_value);
         nat_metric_accumulate(skb, false, ct_value);
     }
 
-    struct nat_action_v4 action = {
+    struct nat4_action action = {
         .from_addr = ip_pair.src_addr,
         .from_port = ip_pair.src_port,
         .to_addr.addr = result.nat_addr,
@@ -110,7 +110,7 @@ static __always_inline int tc_nat_v4_ingress_do(struct __sk_buff *skb, u32 ifind
     struct inet4_pair ip_pair = {0};
     struct nat4_lan_result result = {};
     struct nat4_mapping_value_v3 *dyn_ingress = NULL;
-    struct nat_action_v4 action = {0};
+    struct nat4_action action = {0};
     int ret = 0;
 
     if (scan_ipv4_full(skb, current_l3_offset, &idx) != LD_SCAN_OK) return TC_ACT_OK;
@@ -130,7 +130,7 @@ static __always_inline int tc_nat_v4_ingress_do(struct __sk_buff *skb, u32 ifind
     bool is_icmpx_error = idx.icmp_error_l3_offset > 0 && idx.icmp_error_inner_l4_offset > 0;
     u8 nat_l4_protocol = is_icmpx_error ? idx.icmp_error_l4_protocol : idx.l4_protocol;
 
-    struct nat_timer_key_v4 ct_key = {0};
+    struct nat4_timer_key ct_key = {0};
     ct_key.l4proto = nat_l4_protocol;
     ct_key.pair_ip.src_addr = ip_pair.src_addr;
     ct_key.pair_ip.src_port = ip_pair.src_port;
@@ -167,7 +167,7 @@ static __always_inline int tc_nat_v4_ingress_do(struct __sk_buff *skb, u32 ifind
         if (ret != TC_ACT_OK) {
             return TC_ACT_SHOT;
         }
-        if (!nat4_v3_dyn_can_create_ct(dyn_ingress)) {
+        if (!nat4_can_create_ct(dyn_ingress)) {
             return TC_ACT_SHOT;
         }
     }
@@ -187,7 +187,7 @@ translate:
     action.from_port = ip_pair.dst_port;
 
     if (!is_icmpx_error) {
-        nat_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, ct_value);
+        nat4_ct_advance(idx.pkt_type, NAT_MAPPING_INGRESS, ct_value);
         nat_metric_accumulate(skb, true, ct_value);
     }
 

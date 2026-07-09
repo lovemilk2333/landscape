@@ -131,19 +131,16 @@ pub fn attach_tc_nat(ifindex: u32, has_mac: bool, config: &NatConfig) -> LdEbpfR
     )?;
 
     pin_and_reuse_map(&mut open_skel.maps.wan_ip_binding, &MAP_PATHS.wan_ip)?;
-    pin_and_reuse_map(&mut open_skel.maps.nat6_static_mappings, &MAP_PATHS.nat6_static_mappings)?;
-    pin_and_reuse_map(&mut open_skel.maps.nat4_st_map, &MAP_PATHS.nat4_st_map)?;
-    pin_and_reuse_map(
-        &mut open_skel.maps.nat_conn_metric_events,
-        &MAP_PATHS.nat_conn_metric_events,
-    )?;
+    pin_and_reuse_map(&mut open_skel.maps.nat6_static_map, &MAP_PATHS.nat6_static_map)?;
+    pin_and_reuse_map(&mut open_skel.maps.nat4_static_map, &MAP_PATHS.nat4_static_map)?;
+    pin_and_reuse_map(&mut open_skel.maps.nat_metric_events, &MAP_PATHS.nat_metric_events)?;
 
     let skel = bpf_ctx!(open_skel.load(), "load tc_nat skeleton")?;
 
     seed_runtime_queues(
-        &skel.maps.nat4_tcp_free_ports_v3,
-        &skel.maps.nat4_udp_free_ports_v3,
-        &skel.maps.nat4_icmp_free_ports_v3,
+        &skel.maps.nat4_tcp_port_queue,
+        &skel.maps.nat4_udp_port_queue,
+        &skel.maps.nat4_icmp_port_queue,
         config,
     );
 
@@ -208,16 +205,16 @@ fn init_nat_xdp_unified(
         &tc_pipe_exits_wan_egress_path(),
     )?;
     pin_and_reuse_map(&mut tc_open.maps.wan_ip_binding, &MAP_PATHS.wan_ip)?;
-    pin_and_reuse_map(&mut tc_open.maps.nat6_static_mappings, &MAP_PATHS.nat6_static_mappings)?;
-    pin_and_reuse_map(&mut tc_open.maps.nat4_st_map, &MAP_PATHS.nat4_st_map)?;
-    pin_and_reuse_map(&mut tc_open.maps.nat_conn_metric_events, &MAP_PATHS.nat_conn_metric_events)?;
+    pin_and_reuse_map(&mut tc_open.maps.nat6_static_map, &MAP_PATHS.nat6_static_map)?;
+    pin_and_reuse_map(&mut tc_open.maps.nat4_static_map, &MAP_PATHS.nat4_static_map)?;
+    pin_and_reuse_map(&mut tc_open.maps.nat_metric_events, &MAP_PATHS.nat_metric_events)?;
 
     let tc_skel = bpf_ctx!(tc_open.load(), "load tc_nat skeleton")?;
 
     seed_runtime_queues(
-        &tc_skel.maps.nat4_tcp_free_ports_v3,
-        &tc_skel.maps.nat4_udp_free_ports_v3,
-        &tc_skel.maps.nat4_icmp_free_ports_v3,
+        &tc_skel.maps.nat4_tcp_port_queue,
+        &tc_skel.maps.nat4_udp_port_queue,
+        &tc_skel.maps.nat4_icmp_port_queue,
         config,
     );
 
@@ -252,19 +249,16 @@ fn init_nat_xdp_unified(
         "xdp_nat pin wan_ip_binding"
     )?;
     crate::bpf_ctx!(
-        pin_and_reuse_map(&mut xdp_open.maps.nat6_static_mappings, &MAP_PATHS.nat6_static_mappings,),
-        "xdp_nat pin nat6_static_mappings"
+        pin_and_reuse_map(&mut xdp_open.maps.nat6_static_map, &MAP_PATHS.nat6_static_map,),
+        "xdp_nat pin nat6_static_map"
     )?;
     crate::bpf_ctx!(
-        pin_and_reuse_map(&mut xdp_open.maps.nat4_st_map, &MAP_PATHS.nat4_st_map),
-        "xdp_nat pin nat4_st_map"
+        pin_and_reuse_map(&mut xdp_open.maps.nat4_static_map, &MAP_PATHS.nat4_static_map),
+        "xdp_nat pin nat4_static_map"
     )?;
     crate::bpf_ctx!(
-        pin_and_reuse_map(
-            &mut xdp_open.maps.nat_conn_metric_events,
-            &MAP_PATHS.nat_conn_metric_events,
-        ),
-        "xdp_nat pin nat_conn_metric_events"
+        pin_and_reuse_map(&mut xdp_open.maps.nat_metric_events, &MAP_PATHS.nat_metric_events,),
+        "xdp_nat pin nat_metric_events"
     )?;
 
     // Reuse TC's runtime map FDs in XDP (FD sharing, no pinning)
@@ -277,27 +271,24 @@ fn init_nat_xdp_unified(
         "xdp_nat reuse nat4_egress_dyn_map fd"
     )?;
     crate::bpf_ctx!(
-        xdp_open.maps.nat4_mapping_timer_v3.reuse_fd(tc_skel.maps.nat4_mapping_timer_v3.as_fd()),
-        "xdp_nat reuse nat4_mapping_timer_v3 fd"
+        xdp_open.maps.nat4_timer_map.reuse_fd(tc_skel.maps.nat4_timer_map.as_fd()),
+        "xdp_nat reuse nat4_timer_map fd"
     )?;
     crate::bpf_ctx!(
-        xdp_open.maps.nat4_tcp_free_ports_v3.reuse_fd(tc_skel.maps.nat4_tcp_free_ports_v3.as_fd()),
-        "xdp_nat reuse nat4_tcp_free_ports_v3 fd"
+        xdp_open.maps.nat4_tcp_port_queue.reuse_fd(tc_skel.maps.nat4_tcp_port_queue.as_fd()),
+        "xdp_nat reuse nat4_tcp_port_queue fd"
     )?;
     crate::bpf_ctx!(
-        xdp_open.maps.nat4_udp_free_ports_v3.reuse_fd(tc_skel.maps.nat4_udp_free_ports_v3.as_fd()),
-        "xdp_nat reuse nat4_udp_free_ports_v3 fd"
+        xdp_open.maps.nat4_udp_port_queue.reuse_fd(tc_skel.maps.nat4_udp_port_queue.as_fd()),
+        "xdp_nat reuse nat4_udp_port_queue fd"
     )?;
     crate::bpf_ctx!(
-        xdp_open
-            .maps
-            .nat4_icmp_free_ports_v3
-            .reuse_fd(tc_skel.maps.nat4_icmp_free_ports_v3.as_fd()),
-        "xdp_nat reuse nat4_icmp_free_ports_v3 fd"
+        xdp_open.maps.nat4_icmp_port_queue.reuse_fd(tc_skel.maps.nat4_icmp_port_queue.as_fd()),
+        "xdp_nat reuse nat4_icmp_port_queue fd"
     )?;
     crate::bpf_ctx!(
-        xdp_open.maps.nat6_conn_timer.reuse_fd(tc_skel.maps.nat6_conn_timer.as_fd()),
-        "xdp_nat reuse nat6_conn_timer fd"
+        xdp_open.maps.nat6_timer_map.reuse_fd(tc_skel.maps.nat6_timer_map.as_fd()),
+        "xdp_nat reuse nat6_timer_map fd"
     )?;
 
     {

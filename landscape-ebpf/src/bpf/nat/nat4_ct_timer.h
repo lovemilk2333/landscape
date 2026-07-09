@@ -6,16 +6,16 @@
 #include "nat4_dyn_map.h"
 #include "nat4_map_ops.h"
 
-#define NAT4_V3_TIMER_STEP_DELETE_CT 1U
-#define NAT4_V3_TIMER_STEP_RESTART 2U
+#define NAT4_TIMER_STEP_DELETE_CT 1U
+#define NAT4_TIMER_STEP_RESTART 2U
 
-static __always_inline int nat_metric_try_report_v4(struct nat_timer_key_v4 *timer_key,
-                                                    struct nat4_timer_value_v3 *timer_value,
-                                                    u8 status) {
-#define BPF_LOG_TOPIC "nat_metric_try_report_v4"
+static __always_inline int nat4_metric_try_report(struct nat4_timer_key *timer_key,
+                                                  struct nat4_timer_value_v3 *timer_value,
+                                                  u8 status) {
+#define BPF_LOG_TOPIC "nat4_metric_try_report"
 
     struct nat_conn_metric_event *event;
-    event = bpf_ringbuf_reserve(&nat_conn_metric_events, sizeof(struct nat_conn_metric_event), 0);
+    event = bpf_ringbuf_reserve(&nat_metric_events, sizeof(struct nat_conn_metric_event), 0);
     if (event == NULL) {
         return -1;
     }
@@ -44,27 +44,26 @@ static __always_inline int nat_metric_try_report_v4(struct nat_timer_key_v4 *tim
 #undef BPF_LOG_TOPIC
 }
 
-static __always_inline u32 nat4_v3_timer_delete_ct(struct nat_timer_key_v4 *key) {
-    bpf_map_delete_elem(&nat4_mapping_timer_v3, key);
-    return NAT4_V3_TIMER_STEP_DELETE_CT;
+static __always_inline u32 nat4_timer_delete_ct(struct nat4_timer_key *key) {
+    bpf_map_delete_elem(&nat4_timer_map, key);
+    return NAT4_TIMER_STEP_DELETE_CT;
 }
 
-static __always_inline u32 nat4_v3_timer_restart_with_status(struct nat4_timer_value_v3 *value,
-                                                             u64 current_status, u64 next_status,
-                                                             u64 timeout_ns, u64 *next_timeout) {
+static __always_inline u32 nat4_timer_restart(struct nat4_timer_value_v3 *value, u64 current_status,
+                                              u64 next_status, u64 timeout_ns, u64 *next_timeout) {
     if (current_status != next_status &&
         !ct_try_set_status(&value->status, current_status, next_status)) {
         *next_timeout = REPORT_INTERVAL;
-        return NAT4_V3_TIMER_STEP_RESTART;
+        return NAT4_TIMER_STEP_RESTART;
     }
 
     *next_timeout = timeout_ns;
-    return NAT4_V3_TIMER_STEP_RESTART;
+    return NAT4_TIMER_STEP_RESTART;
 }
 
-static __always_inline int nat_ct_advance(u8 pkt_type, u8 gress,
-                                          struct nat4_timer_value_v3 *ct_timer_value) {
-#define BPF_LOG_TOPIC "nat_ct_advance"
+static __always_inline int nat4_ct_advance(u8 pkt_type, u8 gress,
+                                           struct nat4_timer_value_v3 *ct_timer_value) {
+#define BPF_LOG_TOPIC "nat4_ct_advance"
     u64 curr_state, *modify_status = NULL;
     if (gress == NAT_MAPPING_INGRESS) {
         curr_state = ct_timer_value->server_status;
@@ -106,10 +105,10 @@ static __always_inline int nat_ct_advance(u8 pkt_type, u8 gress,
 #undef BPF_LOG_TOPIC
 }
 
-static __always_inline u32 nat4_v3_handle_timer_step(struct nat_timer_key_v4 *key,
-                                                     struct nat4_timer_value_v3 *value,
-                                                     bool force_queue_push_fail,
-                                                     int *queue_push_ret, u64 *next_timeout) {
+static __always_inline u32 nat4_handle_timer_step(struct nat4_timer_key *key,
+                                                  struct nat4_timer_value_v3 *value,
+                                                  bool force_queue_push_fail, int *queue_push_ret,
+                                                  u64 *next_timeout) {
     u64 current_status = value->status;
     u64 next_status = current_status;
     int ret;
@@ -118,63 +117,63 @@ static __always_inline u32 nat4_v3_handle_timer_step(struct nat_timer_key_v4 *ke
     *next_timeout = REPORT_INTERVAL;
 
     if (current_status == TIMER_PENDING_REF) {
-        return nat4_v3_timer_delete_ct(key);
+        return nat4_timer_delete_ct(key);
     }
 
     if (current_status == TIMER_RELEASE) {
-        ret = nat_metric_try_report_v4(key, value, NAT_CONN_DELETE);
+        ret = nat4_metric_try_report(key, value, NAT_CONN_DELETE);
 
         if (value->is_static) {
-            return nat4_v3_timer_delete_ct(key);
+            return nat4_timer_delete_ct(key);
         }
 
-        struct nat4_mapping_value_v3 *ingress_value = nat4_v3_lookup_ingress_dynamic(
+        struct nat4_mapping_value_v3 *ingress_value = nat4_lookup_ingress_dynamic(
             key->l4proto, key->pair_ip.dst_addr.addr, key->pair_ip.dst_port);
         if (!ingress_value || ingress_value->generation != value->generation_snapshot) {
-            return nat4_v3_timer_delete_ct(key);
+            return nat4_timer_delete_ct(key);
         }
 
-        if (nat4_v3_state_try_close_last(ingress_value) == 0) {
-            return nat4_v3_timer_restart_with_status(value, current_status, TIMER_DELETE_EGRESS,
-                                                     DELETE_RETRY_INTERVAL, next_timeout);
+        if (nat4_state_try_close_last(ingress_value) == 0) {
+            return nat4_timer_restart(value, current_status, TIMER_DELETE_EGRESS,
+                                      DELETE_RETRY_INTERVAL, next_timeout);
         }
 
-        if (nat4_v3_state_try_dec(ingress_value) == 0) {
-            return nat4_v3_timer_delete_ct(key);
+        if (nat4_state_try_dec(ingress_value) == 0) {
+            return nat4_timer_delete_ct(key);
         }
 
-        return nat4_v3_timer_delete_ct(key);
+        return nat4_timer_delete_ct(key);
     }
 
     if (current_status == TIMER_DELETE_EGRESS) {
-        struct nat_mapping_key_v4 egress_key = {
+        struct nat4_mapping_key egress_key = {
             .gress = NAT_MAPPING_EGRESS,
             .l4proto = key->l4proto,
             .from_addr = value->client_addr.addr,
             .from_port = value->client_port,
         };
-        struct nat4_egress_mapping_value_v3 *egress_value = nat4_v3_lookup_egress_dynamic(
-            key->l4proto, value->client_addr.addr, value->client_port);
+        struct nat4_egress_mapping_value_v3 *egress_value =
+            nat4_lookup_egress_dynamic(key->l4proto, value->client_addr.addr, value->client_port);
 
         if (egress_value && egress_value->addr == key->pair_ip.dst_addr.addr &&
             egress_value->port == key->pair_ip.dst_port) {
             bpf_map_delete_elem(&nat4_egress_dyn_map, &egress_key);
 
-            egress_value = nat4_v3_lookup_egress_dynamic(key->l4proto, value->client_addr.addr,
-                                                         value->client_port);
+            egress_value = nat4_lookup_egress_dynamic(key->l4proto, value->client_addr.addr,
+                                                      value->client_port);
             if (egress_value && egress_value->addr == key->pair_ip.dst_addr.addr &&
                 egress_value->port == key->pair_ip.dst_port) {
-                return nat4_v3_timer_restart_with_status(value, current_status, current_status,
-                                                         DELETE_RETRY_INTERVAL, next_timeout);
+                return nat4_timer_restart(value, current_status, current_status,
+                                          DELETE_RETRY_INTERVAL, next_timeout);
             }
         }
 
-        return nat4_v3_timer_restart_with_status(value, current_status, TIMER_DELETE_INGRESS,
-                                                 DELETE_RETRY_INTERVAL, next_timeout);
+        return nat4_timer_restart(value, current_status, TIMER_DELETE_INGRESS,
+                                  DELETE_RETRY_INTERVAL, next_timeout);
     }
 
     if (current_status == TIMER_DELETE_INGRESS) {
-        struct nat_mapping_key_v4 ingress_key = {
+        struct nat4_mapping_key ingress_key = {
             .gress = NAT_MAPPING_INGRESS,
             .l4proto = key->l4proto,
             .from_addr = key->pair_ip.dst_addr.addr,
@@ -184,52 +183,52 @@ static __always_inline u32 nat4_v3_handle_timer_step(struct nat_timer_key_v4 *ke
             bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
 
         if (!ingress_value) {
-            return nat4_v3_timer_restart_with_status(value, current_status, TIMER_PUSH_QUEUE,
-                                                     QUEUE_RETRY_INTERVAL, next_timeout);
+            return nat4_timer_restart(value, current_status, TIMER_PUSH_QUEUE, QUEUE_RETRY_INTERVAL,
+                                      next_timeout);
         }
 
         if (ingress_value->generation != value->generation_snapshot) {
-            return nat4_v3_timer_delete_ct(key);
+            return nat4_timer_delete_ct(key);
         }
 
         bpf_map_delete_elem(&nat4_ingress_dyn_map, &ingress_key);
 
         ingress_value = bpf_map_lookup_elem(&nat4_ingress_dyn_map, &ingress_key);
         if (!ingress_value) {
-            return nat4_v3_timer_restart_with_status(value, current_status, TIMER_PUSH_QUEUE,
-                                                     QUEUE_RETRY_INTERVAL, next_timeout);
+            return nat4_timer_restart(value, current_status, TIMER_PUSH_QUEUE, QUEUE_RETRY_INTERVAL,
+                                      next_timeout);
         }
 
         if (ingress_value->generation != value->generation_snapshot) {
-            return nat4_v3_timer_delete_ct(key);
+            return nat4_timer_delete_ct(key);
         }
 
-        return nat4_v3_timer_restart_with_status(value, current_status, current_status,
-                                                 DELETE_RETRY_INTERVAL, next_timeout);
+        return nat4_timer_restart(value, current_status, current_status, DELETE_RETRY_INTERVAL,
+                                  next_timeout);
     }
 
     if (current_status == TIMER_PUSH_QUEUE) {
         if (value->is_static) {
-            return nat4_v3_timer_delete_ct(key);
+            return nat4_timer_delete_ct(key);
         }
 
         struct nat4_port_queue_value_v3 free_item = {
             .port = key->pair_ip.dst_port,
             .last_generation = value->generation_snapshot,
         };
-        *queue_push_ret = force_queue_push_fail ? -1 : nat4_v3_queue_push(key->l4proto, &free_item);
+        *queue_push_ret = force_queue_push_fail ? -1 : nat4_queue_push(key->l4proto, &free_item);
         if (*queue_push_ret == 0) {
-            return nat4_v3_timer_delete_ct(key);
+            return nat4_timer_delete_ct(key);
         }
 
-        return nat4_v3_timer_restart_with_status(value, current_status, current_status,
-                                                 QUEUE_RETRY_INTERVAL, next_timeout);
+        return nat4_timer_restart(value, current_status, current_status, QUEUE_RETRY_INTERVAL,
+                                  next_timeout);
     }
 
-    ret = nat_metric_try_report_v4(key, value, NAT_CONN_ACTIVE);
+    ret = nat4_metric_try_report(key, value, NAT_CONN_ACTIVE);
     if (ret) {
         *next_timeout = REPORT_INTERVAL;
-        return NAT4_V3_TIMER_STEP_RESTART;
+        return NAT4_TIMER_STEP_RESTART;
     }
 
     if (current_status == TIMER_ACTIVE) {
@@ -257,20 +256,20 @@ static __always_inline u32 nat4_v3_handle_timer_step(struct nat_timer_key_v4 *ke
     if (__sync_val_compare_and_swap(&value->status, current_status, next_status) !=
         current_status) {
         *next_timeout = REPORT_INTERVAL;
-        return NAT4_V3_TIMER_STEP_RESTART;
+        return NAT4_TIMER_STEP_RESTART;
     }
 
-    return NAT4_V3_TIMER_STEP_RESTART;
+    return NAT4_TIMER_STEP_RESTART;
 }
 
-static int timer_clean_callback_v3(void *map_, struct nat_timer_key_v4 *key,
-                                   struct nat4_timer_value_v3 *value) {
-#define BPF_LOG_TOPIC "timer_clean_callback_v3"
+static int nat4_timer_clean_callback(void *map_, struct nat4_timer_key *key,
+                                     struct nat4_timer_value_v3 *value) {
+#define BPF_LOG_TOPIC "nat4_timer_clean_callback"
     int queue_push_ret = -2;
     u64 next_timeout = REPORT_INTERVAL;
-    u32 action = nat4_v3_handle_timer_step(key, value, false, &queue_push_ret, &next_timeout);
+    u32 action = nat4_handle_timer_step(key, value, false, &queue_push_ret, &next_timeout);
 
-    if (action == NAT4_V3_TIMER_STEP_RESTART) {
+    if (action == NAT4_TIMER_STEP_RESTART) {
         bpf_timer_start(&value->timer, next_timeout, 0);
     }
     return 0;
@@ -278,18 +277,18 @@ static int timer_clean_callback_v3(void *map_, struct nat_timer_key_v4 *key,
 }
 
 static __always_inline struct nat4_timer_value_v3 *
-nat4_v3_insert_ct(const struct nat_timer_key_v4 *key, const struct nat4_timer_value_v3 *val) {
-    if (bpf_map_update_elem(&nat4_mapping_timer_v3, key, val, BPF_NOEXIST) != 0) {
+nat4_insert_ct(const struct nat4_timer_key *key, const struct nat4_timer_value_v3 *val) {
+    if (bpf_map_update_elem(&nat4_timer_map, key, val, BPF_NOEXIST) != 0) {
         return NULL;
     }
-    struct nat4_timer_value_v3 *value = bpf_map_lookup_elem(&nat4_mapping_timer_v3, key);
+    struct nat4_timer_value_v3 *value = bpf_map_lookup_elem(&nat4_timer_map, key);
     if (!value) {
         return NULL;
     }
-    if (bpf_timer_init(&value->timer, &nat4_mapping_timer_v3, CLOCK_MONOTONIC) != 0) {
+    if (bpf_timer_init(&value->timer, &nat4_timer_map, CLOCK_MONOTONIC) != 0) {
         goto err;
     }
-    if (bpf_timer_set_callback(&value->timer, timer_clean_callback_v3) != 0) {
+    if (bpf_timer_set_callback(&value->timer, nat4_timer_clean_callback) != 0) {
         goto err;
     }
     if (bpf_timer_start(&value->timer, REPORT_INTERVAL, 0) != 0) {
@@ -297,7 +296,7 @@ nat4_v3_insert_ct(const struct nat_timer_key_v4 *key, const struct nat4_timer_va
     }
     return value;
 err:
-    bpf_map_delete_elem(&nat4_mapping_timer_v3, key);
+    bpf_map_delete_elem(&nat4_timer_map, key);
     return NULL;
 }
 
@@ -308,9 +307,9 @@ enum ct_ingress_resolve {
 };
 
 static __always_inline enum ct_ingress_resolve
-nat4_ct_ingress_resolve(const struct nat_timer_key_v4 *ct_key,
+nat4_ct_ingress_resolve(const struct nat4_timer_key *ct_key,
                         struct nat4_timer_value_v3 **timer_value_) {
-    struct nat4_timer_value_v3 *tv = bpf_map_lookup_elem(&nat4_mapping_timer_v3, ct_key);
+    struct nat4_timer_value_v3 *tv = bpf_map_lookup_elem(&nat4_timer_map, ct_key);
     if (!tv) {
         return CT_RESOLVE_MISS;
     }
@@ -321,17 +320,17 @@ nat4_ct_ingress_resolve(const struct nat_timer_key_v4 *ct_key,
     return CT_RESOLVE_OK;
 }
 
-static __always_inline int nat4_ct_resolve(const struct nat_timer_key_v4 *ct_key,
+static __always_inline int nat4_ct_resolve(const struct nat4_timer_key *ct_key,
                                            struct nat4_mapping_value_v3 *dyn_ingress,
                                            struct nat4_timer_value_v3 **timer_value_) {
     bool track_dynamic_ref = dyn_ingress != NULL;
     u16 generation_snapshot = track_dynamic_ref ? dyn_ingress->generation : 0;
 
-    struct nat4_timer_value_v3 *timer_value = bpf_map_lookup_elem(&nat4_mapping_timer_v3, ct_key);
+    struct nat4_timer_value_v3 *timer_value = bpf_map_lookup_elem(&nat4_timer_map, ct_key);
     if (timer_value) {
         if (track_dynamic_ref && generation_snapshot != 0 &&
             timer_value->generation_snapshot != generation_snapshot) {
-            bpf_map_delete_elem(&nat4_mapping_timer_v3, ct_key);
+            bpf_map_delete_elem(&nat4_timer_map, ct_key);
         } else if (timer_value->status == TIMER_PENDING_REF) {
             return -1;
         } else {
@@ -340,45 +339,6 @@ static __always_inline int nat4_ct_resolve(const struct nat_timer_key_v4 *ct_key
         }
     }
     return -1;
-}
-
-static __always_inline int nat4_ct_create(struct __sk_buff *skb, u32 ifindex,
-                                          const struct nat_timer_key_v4 *ct_key,
-                                          const struct inet4_addr *client_addr, __be16 client_port,
-                                          u8 gress, struct nat4_mapping_value_v3 *dyn_ingress,
-                                          struct nat4_timer_value_v3 **timer_value_) {
-    bool track_dynamic_ref = dyn_ingress != NULL;
-    u16 generation_snapshot = track_dynamic_ref ? dyn_ingress->generation : 0;
-
-    struct nat4_timer_value_v3 new_value = {0};
-    new_value.client_port = client_port;
-    new_value.client_status = CT_INIT;
-    new_value.server_status = CT_INIT;
-    new_value.gress = gress;
-    new_value.client_addr = *client_addr;
-    new_value.create_time = bpf_ktime_get_tai_ns();
-    new_value.flow_id = get_flow_id(skb->mark);
-    new_value.cpu_id = bpf_get_smp_processor_id();
-    new_value.ifindex = ifindex;
-    new_value.generation_snapshot = generation_snapshot;
-    new_value.is_static = dyn_ingress == NULL ? 1 : 0;
-    new_value.status = track_dynamic_ref ? TIMER_PENDING_REF : TIMER_INIT;
-
-    struct nat4_timer_value_v3 *timer_value = nat4_v3_insert_ct(ct_key, &new_value);
-    if (!timer_value) {
-        return -1;
-    }
-
-    if (track_dynamic_ref) {
-        if (nat4_v3_state_try_inc(dyn_ingress) != 0) {
-            bpf_map_delete_elem(&nat4_mapping_timer_v3, ct_key);
-            return -1;
-        }
-        timer_value->status = TIMER_INIT;
-    }
-
-    *timer_value_ = timer_value;
-    return 0;
 }
 
 #endif /* __LD_NAT4_CT_TIMER_H__ */

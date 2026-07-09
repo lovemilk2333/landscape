@@ -208,11 +208,8 @@ pub(crate) fn init_path(paths: &LandscapeMapPath) {
 
     reuse_pinned_map_or_recreate(&mut landscape_open.maps.wan_ip_binding, &paths.wan_ip);
     // NAT
-    reuse_pinned_map_or_recreate(
-        &mut landscape_open.maps.nat6_static_mappings,
-        &paths.nat6_static_mappings,
-    );
-    reuse_pinned_map_or_recreate(&mut landscape_open.maps.nat4_st_map, &paths.nat4_st_map);
+    reuse_pinned_map_or_recreate(&mut landscape_open.maps.nat6_static_map, &paths.nat6_static_map);
+    reuse_pinned_map_or_recreate(&mut landscape_open.maps.nat4_static_map, &paths.nat4_static_map);
 
     // firewall
     reuse_pinned_map_or_recreate(
@@ -229,8 +226,8 @@ pub(crate) fn init_path(paths: &LandscapeMapPath) {
     // metric
     reuse_pinned_map_or_recreate(&mut landscape_open.maps.metric_bucket_map, &paths.metric_map);
     reuse_pinned_map_or_recreate(
-        &mut landscape_open.maps.nat_conn_metric_events,
-        &paths.nat_conn_metric_events,
+        &mut landscape_open.maps.nat_metric_events,
+        &paths.nat_metric_events,
     );
     reuse_pinned_map_or_recreate(
         &mut landscape_open.maps.firewall_conn_metric_events,

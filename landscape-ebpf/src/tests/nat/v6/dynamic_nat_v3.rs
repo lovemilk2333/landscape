@@ -57,12 +57,12 @@ fn npt_id_mask(prefix_len: u8) -> u8 {
     }
 }
 
-fn timer_key_for(src: Ipv6Addr, client_port: u16, prefix_len: u8) -> types::nat_timer_key_v6 {
+fn timer_key_for(src: Ipv6Addr, client_port: u16, prefix_len: u8) -> types::nat6_timer_key {
     let bytes = src.octets();
     let mut client_suffix = [0u8; 8];
     client_suffix.copy_from_slice(&bytes[8..]);
 
-    types::nat_timer_key_v6 {
+    types::nat6_timer_key {
         client_suffix,
         client_port: client_port.to_be(),
         id_byte: bytes[7] & npt_id_mask(prefix_len),
@@ -72,12 +72,12 @@ fn timer_key_for(src: Ipv6Addr, client_port: u16, prefix_len: u8) -> types::nat_
 
 fn add_ct6_entry<T: MapCore>(
     timer_map: &T,
-    key: &types::nat_timer_key_v6,
+    key: &types::nat6_timer_key,
     src: Ipv6Addr,
     trigger_addr: Ipv6Addr,
     trigger_port: u16,
 ) {
-    let mut value = types::nat_timer_value_v6 {
+    let mut value = types::nat6_timer_value {
         server_status: 1,
         client_status: 1,
         is_allow_reuse: 1,
@@ -94,13 +94,13 @@ fn add_ct6_entry<T: MapCore>(
 
 fn lookup_ct6_entry<T: MapCore>(
     timer_map: &T,
-    key: &types::nat_timer_key_v6,
-) -> types::nat_timer_value_v6 {
+    key: &types::nat6_timer_key,
+) -> types::nat6_timer_value {
     let bytes = timer_map
         .lookup(unsafe { plain::as_bytes(key) }, MapFlags::ANY)
         .expect("lookup ct entry")
         .expect("missing ct entry");
-    unsafe { std::ptr::read_unaligned(bytes.as_ptr().cast::<types::nat_timer_value_v6>()) }
+    unsafe { std::ptr::read_unaligned(bytes.as_ptr().cast::<types::nat6_timer_value>()) }
 }
 
 fn assert_dynamic_translation(src: Ipv6Addr, dst: Ipv6Addr, prefix_len: u8) {
@@ -121,7 +121,7 @@ fn assert_dynamic_translation(src: Ipv6Addr, dst: Ipv6Addr, prefix_len: u8) {
         prefix_len,
         Some(MacAddr::broadcast()),
     );
-    add_ct6_entry(&skel.maps.nat6_conn_timer, &key, src, dst, 443);
+    add_ct6_entry(&skel.maps.nat6_timer_map, &key, src, dst, 443);
 
     let mut pkt = build_ipv6_tcp(src, dst, CLIENT_PORT, 443);
     let mut ctx = TestSkb::default();
@@ -187,7 +187,7 @@ fn assert_prefix_refresh(old_src: Ipv6Addr, new_src: Ipv6Addr, prefix_len: u8) {
         prefix_len,
         Some(MacAddr::broadcast()),
     );
-    add_ct6_entry(&skel.maps.nat6_conn_timer, &old_key, old_src, old_remote, 443);
+    add_ct6_entry(&skel.maps.nat6_timer_map, &old_key, old_src, old_remote, 443);
 
     let mut pkt = build_ipv6_tcp(new_src, new_remote, CLIENT_PORT, 8443);
     let mut ctx = TestSkb::default();
@@ -203,7 +203,7 @@ fn assert_prefix_refresh(old_src: Ipv6Addr, new_src: Ipv6Addr, prefix_len: u8) {
     let result = skel.progs.tc_nat_wan_egress.test_run(input).expect("test_run failed");
     assert_eq!(result.return_value as i32, -1, "egress should return TC_ACT_UNSPEC(-1)");
 
-    let value = lookup_ct6_entry(&skel.maps.nat6_conn_timer, &new_key);
+    let value = lookup_ct6_entry(&skel.maps.nat6_timer_map, &new_key);
     assert_eq!(
         &value.client_prefix,
         &new_src.octets()[..8],
@@ -284,12 +284,12 @@ mod tests {
 
     fn add_ct6_icmp_entry<T: MapCore>(
         timer_map: &T,
-        key: &types::nat_timer_key_v6,
+        key: &types::nat6_timer_key,
         src: Ipv6Addr,
         trigger_addr: Ipv6Addr,
         trigger_port: u16,
     ) {
-        let mut value = types::nat_timer_value_v6 {
+        let mut value = types::nat6_timer_value {
             server_status: 1,
             client_status: 1,
             is_allow_reuse: 1,
@@ -333,7 +333,7 @@ mod tests {
             prefix_len,
             Some(MacAddr::broadcast()),
         );
-        add_ct6_icmp_entry(&skel.maps.nat6_conn_timer, &key, src, dst, 443);
+        add_ct6_icmp_entry(&skel.maps.nat6_timer_map, &key, src, dst, 443);
 
         let quoted = build_quoted_ipv6_tcp(dst, src, 443, CLIENT_PORT);
         let mut pkt = build_ipv6_icmp_time_exceeded(src, dst, &quoted);
@@ -413,7 +413,7 @@ mod tests {
             prefix_len,
             Some(MacAddr::broadcast()),
         );
-        add_ct6_icmp_entry(&skel.maps.nat6_conn_timer, &key, src, dst, 443);
+        add_ct6_icmp_entry(&skel.maps.nat6_timer_map, &key, src, dst, 443);
 
         let quoted = build_quoted_ipv6_tcp(wan_src, dst, CLIENT_PORT, 443);
         let mut pkt = build_ipv6_icmp_time_exceeded(dst, wan_src, &quoted);
@@ -497,7 +497,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        let mut value = types::nat_timer_value_v6 {
+        let mut value = types::nat6_timer_value {
             server_status: 1,
             client_status: 1,
             is_allow_reuse: 0,
@@ -507,7 +507,7 @@ mod tests {
         value.trigger_port = 80u16.to_be();
         value.client_prefix.copy_from_slice(&old_src.octets()[..8]);
         skel.maps
-            .nat6_conn_timer
+            .nat6_timer_map
             .update(
                 unsafe { plain::as_bytes(&key) },
                 unsafe { plain::as_bytes(&value) },
@@ -530,7 +530,7 @@ mod tests {
         let result = skel.progs.tc_nat_wan_egress.test_run(input).expect("test_run failed");
         assert_eq!(result.return_value as i32, -1, "egress should return TC_ACT_UNSPEC(-1)");
 
-        let ct_value = lookup_ct6_entry(&skel.maps.nat6_conn_timer, &new_key);
+        let ct_value = lookup_ct6_entry(&skel.maps.nat6_timer_map, &new_key);
         assert_eq!(
             ct_value.is_allow_reuse, 1,
             "is_allow_reuse should update from skb->mark when ancestor matches"
@@ -580,7 +580,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        add_ct6_entry(&skel.maps.nat6_conn_timer, &key, old_src, old_remote, 443);
+        add_ct6_entry(&skel.maps.nat6_timer_map, &key, old_src, old_remote, 443);
 
         let mut pkt = build_ipv6_tcp(new_src, new_remote, CLIENT_PORT, 8443);
         let mut ctx = TestSkb::default();
@@ -597,7 +597,7 @@ mod tests {
         let result = skel.progs.tc_nat_wan_egress.test_run(input).expect("test_run failed");
         assert_eq!(result.return_value as i32, -1, "egress should return TC_ACT_UNSPEC(-1)");
 
-        let ct_value = lookup_ct6_entry(&skel.maps.nat6_conn_timer, &new_key);
+        let ct_value = lookup_ct6_entry(&skel.maps.nat6_timer_map, &new_key);
         assert_eq!(
             ct_value.is_allow_reuse, 1,
             "is_allow_reuse should stay 1 when non-ancestor triggers cache update"
@@ -647,7 +647,7 @@ mod tests {
             Some(MacAddr::broadcast()),
         );
 
-        add_ct6_entry(&skel.maps.nat6_conn_timer, &key, old_src, old_remote, 443);
+        add_ct6_entry(&skel.maps.nat6_timer_map, &key, old_src, old_remote, 443);
 
         let mut pkt = build_ipv6_tcp(new_src, new_remote, CLIENT_PORT, 8443);
         let mut ctx = TestSkb::default();
@@ -663,7 +663,7 @@ mod tests {
         let result = skel.progs.tc_nat_wan_egress.test_run(input).expect("test_run failed");
         assert_eq!(result.return_value as i32, -1, "egress should return TC_ACT_UNSPEC(-1)");
 
-        let ct_value = lookup_ct6_entry(&skel.maps.nat6_conn_timer, &new_key);
+        let ct_value = lookup_ct6_entry(&skel.maps.nat6_timer_map, &new_key);
         assert_eq!(
             &ct_value.client_prefix,
             &new_src.octets()[..8],

@@ -30,8 +30,8 @@ static MAP_PATHS: Lazy<LandscapeMapPath> = Lazy::new(|| {
     }
     let paths = LandscapeMapPath {
         wan_ip: PathBuf::from(format!("{}/wan_ip_binding", ebpf_map_path)),
-        nat6_static_mappings: PathBuf::from(format!("{}/nat_static_mapping", ebpf_map_path)),
-        nat4_st_map: PathBuf::from(format!("{}/nat4_st_map", ebpf_map_path)),
+        nat6_static_map: PathBuf::from(format!("{}/nat6_static_map", ebpf_map_path)),
+        nat4_static_map: PathBuf::from(format!("{}/nat4_static_map", ebpf_map_path)),
 
         firewall_ipv4_block: PathBuf::from(format!("{}/firewall_block_ip4_map", ebpf_map_path)),
         firewall_ipv6_block: PathBuf::from(format!("{}/firewall_block_ip6_map", ebpf_map_path)),
@@ -41,7 +41,7 @@ static MAP_PATHS: Lazy<LandscapeMapPath> = Lazy::new(|| {
         metric_map: PathBuf::from(format!("{}/metric_map", ebpf_map_path)),
 
         // nat_conn_events: PathBuf::from(format!("{}/nat_conn_events", ebpf_map_path)),
-        nat_conn_metric_events: PathBuf::from(format!("{}/nat_conn_metric_events", ebpf_map_path)),
+        nat_metric_events: PathBuf::from(format!("{}/nat_metric_events", ebpf_map_path)),
 
         // firewall_conn_events: PathBuf::from(format!("{}/firewall_conn_events", ebpf_map_path)),
         firewall_conn_metric_events: PathBuf::from(format!(
@@ -80,8 +80,8 @@ static MAP_PATHS: Lazy<LandscapeMapPath> = Lazy::new(|| {
 pub(crate) struct LandscapeMapPath {
     pub wan_ip: PathBuf,
     // NAT
-    pub nat6_static_mappings: PathBuf,
-    pub nat4_st_map: PathBuf,
+    pub nat6_static_map: PathBuf,
+    pub nat4_static_map: PathBuf,
 
     // 防火墙黑名单
     pub firewall_ipv4_block: PathBuf,
@@ -95,7 +95,7 @@ pub(crate) struct LandscapeMapPath {
 
     /// metric
     pub metric_map: PathBuf,
-    pub nat_conn_metric_events: PathBuf,
+    pub nat_metric_events: PathBuf,
     pub firewall_conn_metric_events: PathBuf,
 
     /// route - LAN

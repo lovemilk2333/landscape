@@ -3,8 +3,8 @@
 
 #include "nat_common.h"
 
-#define NAT4_V3_TIMER_SIZE NAT_MAPPING_TIMER_SIZE
-#define NAT4_V3_PORT_QUEUE_SIZE 65536
+#define NAT4_TIMER_SIZE NAT_MAPPING_TIMER_SIZE
+#define NAT4_PORT_QUEUE_SIZE 65536
 
 struct nat4_mapping_value_v3 {
     u64 state_ref;
@@ -54,42 +54,42 @@ struct nat4_timer_value_v3 {
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct nat_mapping_key_v4);
+    __type(key, struct nat4_mapping_key);
     __type(value, struct nat4_mapping_value_v3);
     __uint(max_entries, NAT_MAPPING_CACHE_SIZE);
 } nat4_ingress_dyn_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct nat_mapping_key_v4);
+    __type(key, struct nat4_mapping_key);
     __type(value, struct nat4_egress_mapping_value_v3);
     __uint(max_entries, NAT_MAPPING_CACHE_SIZE);
 } nat4_egress_dyn_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct nat_timer_key_v4);
+    __type(key, struct nat4_timer_key);
     __type(value, struct nat4_timer_value_v3);
-    __uint(max_entries, NAT4_V3_TIMER_SIZE);
+    __uint(max_entries, NAT4_TIMER_SIZE);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} nat4_mapping_timer_v3 SEC(".maps");
+} nat4_timer_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_QUEUE);
     __type(value, struct nat4_port_queue_value_v3);
-    __uint(max_entries, NAT4_V3_PORT_QUEUE_SIZE);
-} nat4_tcp_free_ports_v3 SEC(".maps");
+    __uint(max_entries, NAT4_PORT_QUEUE_SIZE);
+} nat4_tcp_port_queue SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_QUEUE);
     __type(value, struct nat4_port_queue_value_v3);
-    __uint(max_entries, NAT4_V3_PORT_QUEUE_SIZE);
-} nat4_udp_free_ports_v3 SEC(".maps");
+    __uint(max_entries, NAT4_PORT_QUEUE_SIZE);
+} nat4_udp_port_queue SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_QUEUE);
     __type(value, struct nat4_port_queue_value_v3);
-    __uint(max_entries, NAT4_V3_PORT_QUEUE_SIZE);
-} nat4_icmp_free_ports_v3 SEC(".maps");
+    __uint(max_entries, NAT4_PORT_QUEUE_SIZE);
+} nat4_icmp_port_queue SEC(".maps");
 
 #endif /* __LD_NAT4_DYN_MAP_H__ */

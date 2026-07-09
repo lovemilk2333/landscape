@@ -39,6 +39,6 @@ struct {
     __uint(max_entries, STATIC_NAT_MAPPING_CACHE_SIZE);
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
-} nat6_static_mappings SEC(".maps");
+} nat6_static_map SEC(".maps");
 
 #endif /* __LD_NAT6_STATIC_H__ */

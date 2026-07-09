@@ -74,13 +74,13 @@ fn add_ct6_entry<T: MapCore>(
     trigger_addr: Ipv6Addr,
     trigger_port: u16,
 ) {
-    let key = types::nat_timer_key_v6 {
+    let key = types::nat6_timer_key {
         client_suffix,
         client_port: client_port.to_be(),
         id_byte,
         l4_protocol: l4proto,
     };
-    let mut value = types::nat_timer_value_v6 {
+    let mut value = types::nat6_timer_value {
         server_status: 1,
         client_status: 1,
         is_allow_reuse: 1,
@@ -128,7 +128,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -138,7 +138,7 @@ mod tests {
         );
 
         add_ct6_entry(
-            &skel.maps.nat6_conn_timer,
+            &skel.maps.nat6_timer_map,
             6,
             LAN_CLIENT_SUFFIX,
             80,
@@ -196,7 +196,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -206,7 +206,7 @@ mod tests {
         );
 
         add_ct6_entry(
-            &skel.maps.nat6_conn_timer,
+            &skel.maps.nat6_timer_map,
             6,
             LAN_CLIENT_SUFFIX,
             80,
@@ -264,7 +264,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -274,7 +274,7 @@ mod tests {
         );
 
         add_ct6_entry(
-            &skel.maps.nat6_conn_timer,
+            &skel.maps.nat6_timer_map,
             6,
             LOCAL_CLIENT_SUFFIX,
             80,
@@ -331,7 +331,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -341,7 +341,7 @@ mod tests {
         );
 
         add_ct6_entry(
-            &skel.maps.nat6_conn_timer,
+            &skel.maps.nat6_timer_map,
             6,
             LOCAL_CLIENT_SUFFIX,
             80,
@@ -398,7 +398,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 53,
                 lan_port: 53,
@@ -408,7 +408,7 @@ mod tests {
         );
 
         add_ct6_entry(
-            &skel.maps.nat6_conn_timer,
+            &skel.maps.nat6_timer_map,
             17,
             LOCAL_CLIENT_SUFFIX,
             53,
@@ -465,7 +465,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 53,
                 lan_port: 53,
@@ -475,7 +475,7 @@ mod tests {
         );
 
         add_ct6_entry(
-            &skel.maps.nat6_conn_timer,
+            &skel.maps.nat6_timer_map,
             17,
             LOCAL_CLIENT_SUFFIX,
             53,
@@ -532,7 +532,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 80,
@@ -578,7 +578,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 0,
                 lan_port: 80,
@@ -635,7 +635,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![StaticNatMappingV6Item {
                 wan_port: 80,
                 lan_port: 0,
@@ -692,7 +692,7 @@ mod tests {
         );
 
         add_static_nat6_mapping(
-            &skel.maps.nat6_static_mappings,
+            &skel.maps.nat6_static_map,
             vec![
                 StaticNatMappingV6Item {
                     wan_port: 80,

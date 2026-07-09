@@ -15,8 +15,8 @@ pub fn new_metric(
     // let firewall_conn_metric_events =
     //     libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.firewall_conn_metric_events).unwrap();
 
-    let nat_conn_metric_events =
-        libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.nat_conn_metric_events).unwrap();
+    let nat_metric_events =
+        libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.nat_metric_events).unwrap();
 
     // let firewall_metric_tx = connect_msg_tx.clone();
     // let firewall_metric_callback = move |data: &[u8]| -> i32 {
@@ -51,8 +51,8 @@ pub fn new_metric(
     builder
         // .add(&firewall_conn_metric_events, firewall_metric_callback)
         // .expect("failed to add firewall_conn_metric_events ringbuf")
-        .add(&nat_conn_metric_events, nat_metric_callback)
-        .expect("failed to add nat_conn_metric_events ringbuf");
+        .add(&nat_metric_events, nat_metric_callback)
+        .expect("failed to add nat_metric_events ringbuf");
     let mgr = builder.build().expect("failed to build");
 
     'wait_stop: loop {

@@ -29,6 +29,6 @@ struct nat_conn_metric_event {
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 24);
-} nat_conn_metric_events SEC(".maps");
+} nat_metric_events SEC(".maps");
 
 #endif /* __LD_NAT_METRIC_H__ */

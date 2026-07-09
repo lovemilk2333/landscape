@@ -23,14 +23,53 @@ static __always_inline void nat_metric_accumulate(struct __sk_buff *skb, bool in
     }
 }
 
+static __always_inline int nat4_ct_create(struct __sk_buff *skb, u32 ifindex,
+                                          const struct nat4_timer_key *ct_key,
+                                          const struct inet4_addr *client_addr, __be16 client_port,
+                                          u8 gress, struct nat4_mapping_value_v3 *dyn_ingress,
+                                          struct nat4_timer_value_v3 **timer_value_) {
+    bool track_dynamic_ref = dyn_ingress != NULL;
+    u16 generation_snapshot = track_dynamic_ref ? dyn_ingress->generation : 0;
+
+    struct nat4_timer_value_v3 new_value = {0};
+    new_value.client_port = client_port;
+    new_value.client_status = CT_INIT;
+    new_value.server_status = CT_INIT;
+    new_value.gress = gress;
+    new_value.client_addr = *client_addr;
+    new_value.create_time = bpf_ktime_get_tai_ns();
+    new_value.flow_id = get_flow_id(skb->mark);
+    new_value.cpu_id = bpf_get_smp_processor_id();
+    new_value.ifindex = ifindex;
+    new_value.generation_snapshot = generation_snapshot;
+    new_value.is_static = dyn_ingress == NULL ? 1 : 0;
+    new_value.status = track_dynamic_ref ? TIMER_PENDING_REF : TIMER_INIT;
+
+    struct nat4_timer_value_v3 *timer_value = nat4_insert_ct(ct_key, &new_value);
+    if (!timer_value) {
+        return -1;
+    }
+
+    if (track_dynamic_ref) {
+        if (nat4_state_try_inc(dyn_ingress) != 0) {
+            bpf_map_delete_elem(&nat4_timer_map, ct_key);
+            return -1;
+        }
+        timer_value->status = TIMER_INIT;
+    }
+
+    *timer_value_ = timer_value;
+    return 0;
+}
+
 static __always_inline int nat4_dyn_egress_lookup_and_check(
     struct __sk_buff *skb, u32 ifindex, u8 ip_protocol, bool allow_create_mapping,
-    const struct inet4_pair *pkt_ip_pair, struct nat4_egress_nat_result *result,
+    const struct inet4_pair *pkt_ip_pair, struct nat4_egress_result *result,
     struct nat4_mapping_value_v3 **dyn_ingress_out, struct nat4_port_queue_value_v3 *alloc_item) {
     *dyn_ingress_out = NULL;
     result->is_created = 0;
 
-    struct nat_mapping_key_v4 egress_key = {
+    struct nat4_mapping_key egress_key = {
         .gress = NAT_MAPPING_EGRESS,
         .l4proto = ip_protocol,
         .from_port = pkt_ip_pair->src_port,
@@ -41,7 +80,7 @@ static __always_inline int nat4_dyn_egress_lookup_and_check(
         bpf_map_lookup_elem(&nat4_egress_dyn_map, &egress_key);
 
     if (egress_value) {
-        struct nat_mapping_key_v4 ingress_key = {
+        struct nat4_mapping_key ingress_key = {
             .gress = NAT_MAPPING_INGRESS,
             .l4proto = ip_protocol,
             .from_addr = egress_value->addr,
@@ -84,7 +123,7 @@ static __always_inline int nat4_dyn_egress_lookup_and_check(
         return TC_ACT_SHOT;
     }
 
-    if (nat4_v3_alloc_port(ip_protocol, alloc_item) != 0) {
+    if (nat4_alloc_port(ip_protocol, alloc_item) != 0) {
         return TC_ACT_SHOT;
     }
 
@@ -99,9 +138,9 @@ static __always_inline int nat4_dyn_egress_lookup_and_check(
 
     struct nat4_mapping_value_v3 *ingress_value = NULL;
     struct nat4_egress_mapping_value_v3 *egress_out =
-        nat4_v3_insert_mappings_v4(&egress_key, &new_value, generation, &ingress_value);
+        nat4_insert_mappings(&egress_key, &new_value, generation, &ingress_value);
     if (!egress_out || !ingress_value) {
-        (void)nat4_v3_queue_push(ip_protocol, alloc_item);
+        (void)nat4_queue_push(ip_protocol, alloc_item);
         return TC_ACT_SHOT;
     }
 
@@ -114,23 +153,23 @@ static __always_inline int nat4_dyn_egress_lookup_and_check(
 
 static __always_inline int nat4_st_egress_lookup(u32 ifindex, u8 ip_protocol,
                                                  const struct inet4_pair *pkt_ip_pair,
-                                                 struct nat4_egress_nat_result *result) {
-    struct nat_mapping_key_v4 static_egress_key = {
+                                                 struct nat4_egress_result *result) {
+    struct nat4_mapping_key static_egress_key = {
         .gress = NAT_MAPPING_EGRESS,
         .l4proto = ip_protocol,
         .from_port = pkt_ip_pair->src_port,
         .from_addr = pkt_ip_pair->src_addr.addr,
     };
-    struct nat4_st_mapping_value *static_egress =
-        bpf_map_lookup_elem(&nat4_st_map, &static_egress_key);
+    struct nat4_static_value *static_egress =
+        bpf_map_lookup_elem(&nat4_static_map, &static_egress_key);
     if (!static_egress && pkt_ip_pair->src_addr.addr != 0) {
         static_egress_key.from_addr = 0;
-        static_egress = bpf_map_lookup_elem(&nat4_st_map, &static_egress_key);
+        static_egress = bpf_map_lookup_elem(&nat4_static_map, &static_egress_key);
     }
     if (!static_egress) return TC_ACT_SHOT;
 
-    struct nat4_st_mapping_value *st_ingress =
-        nat4_v3_lookup_static_ingress(ip_protocol, static_egress->port);
+    struct nat4_static_value *st_ingress =
+        nat4_lookup_static_ingress(ip_protocol, static_egress->port);
     if (!st_ingress) return TC_ACT_SHOT;
 
     struct wan_ip_info_key wan_search_key = {
@@ -151,7 +190,7 @@ nat4_dyn_ingress_lookup_and_check(u8 ip_protocol, const struct inet4_pair *pkt_i
                                   struct nat4_mapping_value_v3 **dyn_ingress_out) {
     *dyn_ingress_out = NULL;
 
-    struct nat_mapping_key_v4 ingress_key = {
+    struct nat4_mapping_key ingress_key = {
         .gress = NAT_MAPPING_INGRESS,
         .l4proto = ip_protocol,
         .from_port = pkt_ip_pair->dst_port,
@@ -177,14 +216,14 @@ nat4_dyn_ingress_lookup_and_check(u8 ip_protocol, const struct inet4_pair *pkt_i
 static __always_inline int nat4_st_ingress_lookup(u8 ip_protocol,
                                                   const struct inet4_pair *pkt_ip_pair,
                                                   struct nat4_lan_result *result) {
-    struct nat_mapping_key_v4 ingress_key = {
+    struct nat4_mapping_key ingress_key = {
         .gress = NAT_MAPPING_INGRESS,
         .l4proto = ip_protocol,
         .from_port = pkt_ip_pair->dst_port,
         .from_addr = 0,
     };
 
-    struct nat4_st_mapping_value *st_value = bpf_map_lookup_elem(&nat4_st_map, &ingress_key);
+    struct nat4_static_value *st_value = bpf_map_lookup_elem(&nat4_static_map, &ingress_key);
     if (!st_value) return TC_ACT_SHOT;
 
     result->lan_addr = st_value->addr;

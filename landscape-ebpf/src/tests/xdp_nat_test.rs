@@ -253,7 +253,7 @@ fn xdp_nat_static_egress() {
     let _l0 = nat.progs.egress_nat.attach_xdp(nat_h_i as i32).unwrap();
 
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -262,7 +262,7 @@ fn xdp_nat_static_egress() {
         8080,
     );
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -285,7 +285,7 @@ fn xdp_nat_static_egress() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -294,7 +294,7 @@ fn xdp_nat_static_egress() {
         8080,
     );
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -345,7 +345,7 @@ fn xdp_nat_static_ingress() {
     let _l0 = nat.progs.ingress_nat.attach_xdp(nat_h_i as i32).unwrap();
 
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -362,7 +362,7 @@ fn xdp_nat_static_ingress() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -415,7 +415,7 @@ fn xdp_nat_dynamic_egress() {
     let _l1 = dummy.progs.xdp_test_dummy.attach_xdp(nat_p_i as i32).unwrap();
 
     let port_be = 0x1000u16.to_be_bytes();
-    let tcp_queue_fd = nat.maps.nat4_tcp_free_ports_v3.as_fd().as_raw_fd();
+    let tcp_queue_fd = nat.maps.nat4_tcp_port_queue.as_fd().as_raw_fd();
     for _ in 0..10 {
         let ret = unsafe {
             libbpf_rs::libbpf_sys::bpf_map_update_elem(
@@ -600,7 +600,7 @@ fn xdp_nat_firewall_pipeline() {
         .unwrap();
 
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -609,7 +609,7 @@ fn xdp_nat_firewall_pipeline() {
         8080,
     );
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -632,7 +632,7 @@ fn xdp_nat_firewall_pipeline() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -641,7 +641,7 @@ fn xdp_nat_firewall_pipeline() {
         8080,
     );
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -663,7 +663,7 @@ fn xdp_nat_firewall_pipeline() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -672,7 +672,7 @@ fn xdp_nat_firewall_pipeline() {
         8080,
     );
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -815,7 +815,7 @@ fn xdp_nat_fragment_v4() {
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
     let port_be = 0x2000u16.to_be_bytes();
-    let tcp_queue_fd = nat.maps.nat4_tcp_free_ports_v3.as_fd().as_raw_fd();
+    let tcp_queue_fd = nat.maps.nat4_tcp_port_queue.as_fd().as_raw_fd();
     for _ in 0..10 {
         unsafe {
             libbpf_rs::libbpf_sys::bpf_map_update_elem(
@@ -964,7 +964,7 @@ fn xdp_nat_ct_dynamic_multi_pkt() {
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
     let port_be = 0x3000u16.to_be_bytes();
-    let tcp_queue_fd = nat.maps.nat4_tcp_free_ports_v3.as_fd().as_raw_fd();
+    let tcp_queue_fd = nat.maps.nat4_tcp_port_queue.as_fd().as_raw_fd();
     for _ in 0..10 {
         unsafe {
             libbpf_rs::libbpf_sys::bpf_map_update_elem(
@@ -1383,7 +1383,7 @@ fn xdp_nat_udp_egress() {
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
     let port_be = 0x5000u16.to_be_bytes();
-    let udp_queue_fd = nat.maps.nat4_udp_free_ports_v3.as_fd().as_raw_fd();
+    let udp_queue_fd = nat.maps.nat4_udp_port_queue.as_fd().as_raw_fd();
     for _ in 0..10 {
         unsafe {
             libbpf_rs::libbpf_sys::bpf_map_update_elem(
@@ -1609,7 +1609,7 @@ fn xdp_nat_icmp_error_egress() {
     let _l0 = nat.progs.egress_nat.attach_xdp(nat_h_i as i32).unwrap();
 
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         1,
         0,
@@ -1618,7 +1618,7 @@ fn xdp_nat_icmp_error_egress() {
         0,
     );
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         1,
         0,
@@ -1650,7 +1650,7 @@ fn xdp_nat_icmp_error_egress() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         1,
         0,
@@ -1659,7 +1659,7 @@ fn xdp_nat_icmp_error_egress() {
         0,
     );
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         1,
         0,
@@ -1701,7 +1701,7 @@ fn xdp_nat_static_ingress_mark() {
     let _l0 = nat.progs.ingress_nat.attach_xdp(nat_h_i as i32).unwrap();
 
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -1718,7 +1718,7 @@ fn xdp_nat_static_ingress_mark() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -1803,7 +1803,7 @@ fn xdp_nat_chain_pipeline() {
     share.maps.wan_ip_binding.update(&wan_key, &wan_val, MapFlags::ANY).unwrap();
 
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -1812,7 +1812,7 @@ fn xdp_nat_chain_pipeline() {
         8080,
     );
     write_static_mapping_v4(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -1829,7 +1829,7 @@ fn xdp_nat_chain_pipeline() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -1838,7 +1838,7 @@ fn xdp_nat_chain_pipeline() {
         8080,
     );
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,
@@ -1860,7 +1860,7 @@ fn xdp_nat_chain_pipeline() {
     thread::sleep(Duration::from_millis(500));
 
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         1,
         6,
         80,
@@ -1869,7 +1869,7 @@ fn xdp_nat_chain_pipeline() {
         8080,
     );
     assert_static_map_entry(
-        &share.maps.nat4_st_map,
+        &share.maps.nat4_static_map,
         0,
         6,
         8080,

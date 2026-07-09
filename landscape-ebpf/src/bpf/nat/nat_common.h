@@ -44,18 +44,7 @@ static __always_inline bool should_nat_skip_protocol(const u8 protocol) {
              protocol == NEXTHDR_ICMP);
 }
 
-struct nat_mapping_key {
-    u8 gress;
-    u8 l4proto;
-    // egress: Cp
-    // ingress: Np
-    __be16 from_port;
-    // egress: Ca
-    // ingress: Na , maybe change to ifindex
-    union u_inet_addr from_addr;
-};
-
-struct nat_mapping_key_v4 {
+struct nat4_mapping_key {
     u8 gress;
     u8 l4proto;
     // egress: Cp
@@ -66,7 +55,7 @@ struct nat_mapping_key_v4 {
     __be32 from_addr;
 };
 
-struct nat_timer_key_v4 {
+struct nat4_timer_key {
     u8 l4proto;
     u8 _pad[3];
     // As:Ps_An:Pn
@@ -74,7 +63,7 @@ struct nat_timer_key_v4 {
 };
 
 //
-struct nat_timer_key_v6 {
+struct nat6_timer_key {
     u8 client_suffix[8];
     u16 client_port;
     u8 id_byte;
@@ -82,7 +71,7 @@ struct nat_timer_key_v6 {
 };
 
 //
-struct nat_timer_value_v6 {
+struct nat6_timer_value {
     struct bpf_timer timer;
     u64 server_status;
     u64 client_status;
@@ -140,21 +129,21 @@ static __always_inline bool ct_try_set_status(u64 *status_in_value, u64 curr_sta
     return __sync_bool_compare_and_swap(status_in_value, curr_state, next_state);
 }
 
-struct nat_action_v4 {
+struct nat4_action {
     struct inet4_addr from_addr;
     __be16 from_port;
     struct inet4_addr to_addr;
     __be16 to_port;
 };
 
-struct nat4_egress_nat_result {
+struct nat4_egress_result {
     __be32 nat_addr;
     __be16 nat_port;
     u8 is_created;
     u8 _pad;
 };
 
-struct nat4_st_mapping_value {
+struct nat4_static_value {
     __be32 addr;
     __be16 port;
     u8 _pad[2];

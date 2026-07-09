@@ -32,8 +32,8 @@ pub fn build_static_nat4_entries(configs: &[RuntimeStaticNatMappingV4Config]) ->
 }
 
 pub fn reconcile_static_nat4_entries(desired: RawEbpfMapEntries) -> LdEbpfResult<()> {
-    let nat4_st_map = libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.nat4_st_map)?;
-    reconcile_raw_map(&nat4_st_map, desired)
+    let nat4_static_map = libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.nat4_static_map)?;
+    reconcile_raw_map(&nat4_static_map, desired)
 }
 
 pub fn reconcile_static_nat4_map(configs: &[RuntimeStaticNatMappingV4Config]) -> LdEbpfResult<()> {
@@ -76,7 +76,7 @@ fn insert_static_nat4_item_entries(
     );
 }
 
-pub(crate) fn add_static_nat4_mapping<'obj, T, I>(nat4_st_map: &T, mappings: I)
+pub(crate) fn add_static_nat4_mapping<'obj, T, I>(nat4_static_map: &T, mappings: I)
 where
     T: MapCore,
     I: IntoIterator<Item = StaticNatMappingV4Item>,
@@ -86,18 +86,18 @@ where
     if desired.is_empty() {
         return;
     }
-    if let Err(e) = update_raw_entries(nat4_st_map, desired) {
-        tracing::error!("update nat4_st_map error:{e:?}");
+    if let Err(e) = update_raw_entries(nat4_static_map, desired) {
+        tracing::error!("update nat4_static_map error:{e:?}");
     }
 }
 
-pub fn add_static_nat4_mapping_v3<'obj, T, I>(nat4_st_map: &T, mappings: I)
+pub fn add_static_nat4_mapping_v3<'obj, T, I>(nat4_static_map: &T, mappings: I)
 where
     T: MapCore,
     I: IntoIterator<Item = StaticNatMappingV4Item>,
     I::IntoIter: ExactSizeIterator,
 {
-    add_static_nat4_mapping(nat4_st_map, mappings)
+    add_static_nat4_mapping(nat4_static_map, mappings)
 }
 
 fn raw_static_nat4_entries_from_items<I>(mappings: I) -> RawEbpfMapEntries
