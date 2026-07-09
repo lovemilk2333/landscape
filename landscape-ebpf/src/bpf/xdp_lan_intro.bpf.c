@@ -560,8 +560,8 @@ static __always_inline int xdp_search_route_in_lan_v4(struct xdp_md *ctx,
     if (wan_cache) {
         struct rt_cache_value_v4 *target = bpf_map_lookup_elem(wan_cache, &search_key);
         if (target) {
-            bpf_printk("[wan_cache_r] v4 HIT src=%pI4 dst=%pI4 ifindex=%u has_mac=%u",
-                       &context->saddr, &context->daddr, target->ifindex, target->has_mac);
+            // bpf_printk("[wan_cache_r] v4 HIT src=%pI4 dst=%pI4 ifindex=%u has_mac=%u",
+            //            &context->saddr, &context->daddr, target->ifindex, target->has_mac);
             if (target->is_docker) {
                 xdp_set_docker_meta(ctx, target->mark_value, target->ifindex);
                 return XDP_PASS;
@@ -667,8 +667,8 @@ static __always_inline int xdp_search_route_in_lan_v6(struct xdp_md *ctx,
                 xdp_set_docker_meta(ctx, target->mark_value, target->ifindex);
                 return XDP_PASS;
             }
-            bpf_printk("[wan_cache_r] v6 HIT src=%pI6c dst=%pI6c ifindex=%u has_mac=%u",
-                       &context->saddr, &context->daddr, target->ifindex, target->has_mac);
+            // bpf_printk("[wan_cache_r] v6 HIT src=%pI6c dst=%pI6c ifindex=%u has_mac=%u",
+            //            &context->saddr, &context->daddr, target->ifindex, target->has_mac);
             struct wan_ip_info_key wan_key = {.ifindex = target->ifindex,
                                               .l3_protocol = LANDSCAPE_IPV6_TYPE};
             struct wan_ip_info_value *wan_info = bpf_map_lookup_elem(&wan_ip_binding, &wan_key);

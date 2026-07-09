@@ -245,8 +245,8 @@ static __always_inline void xdp_setting_cache_in_wan_v4(struct xdp_md *ctx,
     void *lan_cache = bpf_map_lookup_elem(&rt4_cache_map, &key);
     if (lan_cache) {
         if (bpf_map_lookup_elem(lan_cache, &cache_key) != NULL) {
-            bpf_printk("[wan_cache_w] v4 SKIP already in lan_cache local=%pI4 remote=%pI4",
-                       &cache_key.local_addr, &cache_key.remote_addr);
+            // bpf_printk("[wan_cache_w] v4 SKIP already in lan_cache local=%pI4 remote=%pI4",
+            //            &cache_key.local_addr, &cache_key.remote_addr);
             return;
         }
     }
@@ -256,15 +256,15 @@ static __always_inline void xdp_setting_cache_in_wan_v4(struct xdp_md *ctx,
     if (wan_cache) {
         struct rt_cache_value_v4 *target = bpf_map_lookup_elem(wan_cache, &cache_key);
         if (target) {
-            bpf_printk("[wan_cache_w] v4 UPDATE local=%pI4 remote=%pI4 ifindex=%u old_if=%u",
-                       &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex,
-                       target->ifindex);
+            // bpf_printk("[wan_cache_w] v4 UPDATE local=%pI4 remote=%pI4 ifindex=%u old_if=%u",
+            //            &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex,
+            //            target->ifindex);
             target->ifindex = ctx->ingress_ifindex;
             target->has_mac = 1;
             target->xdp_redirect_able = xdp_redirect_target_able(ctx->ingress_ifindex) ? 1 : 0;
         } else {
-            bpf_printk("[wan_cache_w] v4 NEW local=%pI4 remote=%pI4 ifindex=%u has_mac=1",
-                       &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex);
+            // bpf_printk("[wan_cache_w] v4 NEW local=%pI4 remote=%pI4 ifindex=%u has_mac=1",
+            //            &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex);
             struct rt_cache_value_v4 new_target = {};
             new_target.has_mac = 1;
             new_target.ifindex = ctx->ingress_ifindex;
@@ -284,8 +284,8 @@ static __always_inline void xdp_setting_cache_in_wan_v6(struct xdp_md *ctx,
     void *lan_cache = bpf_map_lookup_elem(&rt6_cache_map, &key);
     if (lan_cache) {
         if (bpf_map_lookup_elem(lan_cache, &cache_key) != NULL) {
-            bpf_printk("[wan_cache_w] v6 SKIP already in lan_cache local=%pI6c remote=%pI6c",
-                       &cache_key.local_addr, &cache_key.remote_addr);
+            // bpf_printk("[wan_cache_w] v6 SKIP already in lan_cache local=%pI6c remote=%pI6c",
+            //            &cache_key.local_addr, &cache_key.remote_addr);
             return;
         }
     }
@@ -295,15 +295,15 @@ static __always_inline void xdp_setting_cache_in_wan_v6(struct xdp_md *ctx,
     if (wan_cache) {
         struct rt_cache_value_v6 *target = bpf_map_lookup_elem(wan_cache, &cache_key);
         if (target) {
-            bpf_printk("[wan_cache_w] v6 UPDATE local=%pI6c remote=%pI6c ifindex=%u old_if=%u",
-                       &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex,
-                       target->ifindex);
+            // bpf_printk("[wan_cache_w] v6 UPDATE local=%pI6c remote=%pI6c ifindex=%u old_if=%u",
+            //            &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex,
+            //            target->ifindex);
             target->ifindex = ctx->ingress_ifindex;
             target->has_mac = 1;
             target->xdp_redirect_able = xdp_redirect_target_able(ctx->ingress_ifindex) ? 1 : 0;
         } else {
-            bpf_printk("[wan_cache_w] v6 NEW local=%pI6c remote=%pI6c ifindex=%u has_mac=1",
-                       &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex);
+            // bpf_printk("[wan_cache_w] v6 NEW local=%pI6c remote=%pI6c ifindex=%u has_mac=1",
+            //            &cache_key.local_addr, &cache_key.remote_addr, ctx->ingress_ifindex);
             struct rt_cache_value_v6 new_target = {};
             new_target.has_mac = 1;
             new_target.ifindex = ctx->ingress_ifindex;
