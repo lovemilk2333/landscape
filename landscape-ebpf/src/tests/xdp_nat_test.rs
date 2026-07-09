@@ -148,6 +148,7 @@ fn assert_static_map_entry(
     assert_eq!(port, expected_port, "nat port mismatch");
 }
 
+#[allow(dead_code)]
 fn assert_no_dyn_map_entry(
     map: &libbpf_rs::MapMut,
     gress: u8,

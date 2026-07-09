@@ -117,6 +117,20 @@ enum timer_status {
     TIMER_PUSH_QUEUE = 52ULL,
 };
 
+// Generic success/error result for NAT helper functions.
+// Non-zero on error so `if (nat_helper())` keeps meaning "failed".
+enum nat_op_result {
+    NAT_OP_OK = 0,
+    NAT_OP_ERR = -1,
+};
+
+// Result of an IPv6 static mapping lookup.
+enum nat6_static_result {
+    NAT6_STATIC_MISS = 0,     // no static mapping, fall back to dynamic path
+    NAT6_STATIC_REPLACE = 1,  // static mapping hit, client prefix must be replaced
+    NAT6_STATIC_PASS = 2,     // static mapping hit, no prefix replace needed
+};
+
 static __always_inline bool pkt_can_begin_ct(u8 pkt_type) {
     return pkt_type == PKT_CONNLESS_V2 || pkt_type == PKT_TCP_SYN_V2;
 }

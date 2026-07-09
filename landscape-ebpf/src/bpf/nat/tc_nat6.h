@@ -4,35 +4,11 @@
 #include "../landscape_log.h"
 #include "../scanner/scan_types.h"
 #include "nat_common.h"
-#include "nat_metric.h"
-#include "nat6_static.h"
-#include "nat6_dyn_map.h"
+#include "nat6_map_ops.h"
+#include "nat6_ct_timer.h"
 #include "../land_wan_ip.h"
 
 #define LAND_IPV6_NET_PREFIX_TRANS_MASK (0x0FULL << 56)
-
-static __always_inline int get_l4_checksum_offset(u32 l4_offset, u8 l4_protocol,
-                                                  u32 *l4_checksum_offset) {
-    if (l4_protocol == IPPROTO_TCP) {
-        *l4_checksum_offset = l4_offset + offsetof(struct tcphdr, check);
-    } else if (l4_protocol == IPPROTO_UDP) {
-        *l4_checksum_offset = l4_offset + offsetof(struct udphdr, check);
-    } else if (l4_protocol == IPPROTO_ICMPV6) {
-        *l4_checksum_offset = l4_offset + offsetof(struct icmp6hdr, icmp6_cksum);
-    } else {
-        return TC_ACT_SHOT;
-    }
-    return TC_ACT_OK;
-}
-
-static __always_inline bool is_same_prefix(const u8 prefix[8], const union u_inet_addr *a,
-                                           u8 npt_id_mask) {
-    const u8 *b = a->bits;
-    u8 prefix_mask = (u8)~npt_id_mask;
-    return prefix[0] == b[0] && prefix[1] == b[1] && prefix[2] == b[2] && prefix[3] == b[3] &&
-           prefix[4] == b[4] && prefix[5] == b[5] && prefix[6] == b[6] &&
-           ((prefix[7] & prefix_mask) == (b[7] & prefix_mask));
-}
 
 static __always_inline int update_ipv6_cache_value(struct __sk_buff *skb, struct inet_pair *ip_pair,
                                                    struct nat_timer_value_v6 *value) {
@@ -59,211 +35,6 @@ static __always_inline void nat6_metric_accumulate(struct __sk_buff *skb, bool i
         __sync_fetch_and_add(&value->egress_bytes, bytes);
         __sync_fetch_and_add(&value->egress_packets, 1);
     }
-}
-
-static __always_inline int nat_metric_try_report_v6(struct nat_timer_key_v6 *timer_key,
-                                                    struct nat_timer_value_v6 *timer_value,
-                                                    u8 status) {
-#define BPF_LOG_TOPIC "nat_metric_try_report_v6"
-
-    struct nat_conn_metric_event *event;
-    event = bpf_ringbuf_reserve(&nat_conn_metric_events, sizeof(struct nat_conn_metric_event), 0);
-    if (event == NULL) {
-        return -1;
-    }
-
-    __builtin_memcpy(event->src_addr.bits, timer_value->client_prefix, 8);
-    __builtin_memcpy(event->src_addr.bits + 8, timer_key->client_suffix, 8);
-    COPY_ADDR_FROM(event->dst_addr.bits, timer_value->trigger_addr.bytes);
-
-    event->src_port = timer_key->client_port;
-    event->dst_port = timer_value->trigger_port;
-
-    event->l4_proto = timer_key->l4_protocol;
-    event->l3_proto = LANDSCAPE_IPV6_TYPE;
-    event->flow_id = timer_value->flow_id;
-    event->trace_id = 0;
-    event->time = bpf_ktime_get_tai_ns();
-    event->create_time = timer_value->create_time;
-    event->ingress_bytes = timer_value->ingress_bytes;
-    event->ingress_packets = timer_value->ingress_packets;
-    event->egress_bytes = timer_value->egress_bytes;
-    event->egress_packets = timer_value->egress_packets;
-    event->cpu_id = timer_value->cpu_id;
-    event->ifindex = timer_value->ifindex;
-    event->status = status;
-    event->gress = timer_value->gress;
-    bpf_ringbuf_submit(event, 0);
-
-    return 0;
-#undef BPF_LOG_TOPIC
-}
-
-static int v6_timer_clean_callback(void *map_mapping_timer_, struct nat_timer_key_v6 *key,
-                                   struct nat_timer_value_v6 *value) {
-#define BPF_LOG_TOPIC "v6_timer_clean_callback"
-
-    u64 client_status = value->client_status;
-    u64 server_status = value->server_status;
-    u64 current_status = value->status;
-    u64 next_status = current_status;
-    u64 next_timeout = REPORT_INTERVAL;
-    int ret;
-
-    if (value->trigger_port == TEST_PORT) {
-        ld_bpf_log("timer_clean_callback: %pI6, current_status: %llu", &value->trigger_addr.bytes,
-                   current_status);
-    }
-
-    if (current_status == TIMER_RELEASE) {
-        if (value->trigger_port == TEST_PORT) {
-            ld_bpf_log("release CONNECT");
-        }
-
-        ret = nat_metric_try_report_v6(key, value, NAT_CONN_DELETE);
-        if (ret) {
-            ld_bpf_log("call back report fail");
-            bpf_timer_start(&value->timer, next_timeout, 0);
-            return 0;
-        }
-        goto release;
-    }
-
-    ret = nat_metric_try_report_v6(key, value, NAT_CONN_ACTIVE);
-    if (ret) {
-        ld_bpf_log("call back report fail");
-        bpf_timer_start(&value->timer, next_timeout, 0);
-        return 0;
-    }
-
-    if (current_status == TIMER_ACTIVE) {
-        next_status = TIMER_TIMEOUT_1;
-        next_timeout = REPORT_INTERVAL;
-
-        if (value->trigger_port == TEST_PORT) {
-            ld_bpf_log("change next status TIMER_TIMEOUT_1");
-        }
-    } else if (current_status == TIMER_TIMEOUT_1) {
-        next_status = TIMER_TIMEOUT_2;
-        next_timeout = REPORT_INTERVAL;
-
-        if (value->trigger_port == TEST_PORT) {
-            ld_bpf_log("change next status TIMER_TIMEOUT_2");
-        }
-    } else if (current_status == TIMER_TIMEOUT_2) {
-        next_status = TIMER_RELEASE;
-        if (key->l4_protocol == IPPROTO_TCP) {
-            if (client_status == CT_SYN && server_status == CT_SYN) {
-                next_timeout = TCP_TIMEOUT;
-            } else {
-                next_timeout = TCP_SYN_TIMEOUT;
-            }
-        } else {
-            next_timeout = UDP_TIMEOUT;
-        }
-
-        if (value->trigger_port == TEST_PORT) {
-            u64 show = (next_timeout / 1000000000ULL);
-            ld_bpf_log("change next status TIMER_RELEASE, next_timeout: %d", show);
-        }
-    } else {
-        next_status = TIMER_TIMEOUT_2;
-        next_timeout = REPORT_INTERVAL;
-    }
-
-    if (__sync_val_compare_and_swap(&value->status, current_status, next_status) !=
-        current_status) {
-        ld_bpf_log("call back modify status fail, current status: %d new status: %d",
-                   current_status, next_status);
-        bpf_timer_start(&value->timer, REPORT_INTERVAL, 0);
-        return 0;
-    }
-
-    bpf_timer_start(&value->timer, next_timeout, 0);
-
-    return 0;
-release:;
-    bpf_map_delete_elem(&nat6_conn_timer, key);
-    return 0;
-#undef BPF_LOG_TOPIC
-}
-
-static __always_inline struct nat_timer_value_v6 *
-insert_ct6_timer(const struct nat_timer_key_v6 *key, struct nat_timer_value_v6 *val) {
-#define BPF_LOG_TOPIC "insert_ct6_timer"
-
-    int ret = bpf_map_update_elem(&nat6_conn_timer, key, val, BPF_NOEXIST);
-    if (ret) {
-        ld_bpf_log("ct6 timer map insert failed: %d", ret);
-        return NULL;
-    }
-    struct nat_timer_value_v6 *value = bpf_map_lookup_elem(&nat6_conn_timer, key);
-    if (!value) return NULL;
-
-    ret = bpf_timer_init(&value->timer, &nat6_conn_timer, CLOCK_MONOTONIC);
-    if (ret) {
-        goto delete_timer;
-    }
-    ret = bpf_timer_set_callback(&value->timer, v6_timer_clean_callback);
-    if (ret) {
-        goto delete_timer;
-    }
-    ret = bpf_timer_start(&value->timer, REPORT_INTERVAL, 0);
-    if (ret) {
-        goto delete_timer;
-    }
-
-    return value;
-delete_timer:
-    ld_bpf_log("ct6 timer setup failed: %d", ret);
-    bpf_map_delete_elem(&nat6_conn_timer, key);
-    return NULL;
-#undef BPF_LOG_TOPIC
-}
-
-static __always_inline int nat_ct6_advance(u8 pkt_type, u8 gress,
-                                           struct nat_timer_value_v6 *ct_timer_value) {
-#define BPF_LOG_TOPIC "nat_ct6_advance"
-    u64 curr_state, *modify_status = NULL;
-    if (gress == NAT_MAPPING_INGRESS) {
-        curr_state = ct_timer_value->server_status;
-        modify_status = &ct_timer_value->server_status;
-    } else {
-        curr_state = ct_timer_value->client_status;
-        modify_status = &ct_timer_value->client_status;
-    }
-
-#define ADVANCE_STATUS(__state)                                                                    \
-    if (!__sync_bool_compare_and_swap(modify_status, curr_state, (__state))) {                     \
-        return TC_ACT_SHOT;                                                                        \
-    }
-
-    if (pkt_type == PKT_CONNLESS_V2) {
-        ADVANCE_STATUS(CT_LESS_EST);
-    }
-
-    if (pkt_type == PKT_TCP_RST_V2) {
-        ADVANCE_STATUS(CT_INIT);
-    }
-
-    if (pkt_type == PKT_TCP_SYN_V2) {
-        ADVANCE_STATUS(CT_SYN);
-    }
-
-    if (pkt_type == PKT_TCP_FIN_V2) {
-        ADVANCE_STATUS(CT_FIN);
-    }
-
-    u64 prev_state = __sync_lock_test_and_set(&ct_timer_value->status, TIMER_ACTIVE);
-    if (prev_state != TIMER_ACTIVE) {
-        if (ct_timer_value->trigger_port == TEST_PORT) {
-            ld_bpf_log("flush status to TIMER_ACTIVE: 20");
-        }
-        bpf_timer_start(&ct_timer_value->timer, REPORT_INTERVAL, 0);
-    }
-
-    return TC_ACT_OK;
-#undef BPF_LOG_TOPIC
 }
 
 static __always_inline struct nat_timer_value_v6 *lookup_ct6_egress(struct __sk_buff *skb,
@@ -327,26 +98,6 @@ create_ct6_egress(struct __sk_buff *skb, struct scan_ipv6_idx *idx, struct inet_
             return TC_ACT_SHOT;                                                                    \
         }                                                                                          \
     } while (0)
-
-static __always_inline struct static_nat6_mapping_value *
-check_egress_static_mapping_exist(u8 ip_protocol, const struct inet_pair *pkt_ip_pair) {
-    struct static_nat6_mapping_key egress_key = {0};
-    struct static_nat6_mapping_value *value;
-    egress_key.l3_protocol = LANDSCAPE_IPV6_TYPE;
-    egress_key.l4_protocol = ip_protocol;
-    egress_key.gress = NAT_MAPPING_EGRESS;
-    egress_key.prefixlen = 192;
-    COPY_ADDR_FROM(egress_key.addr.all, pkt_ip_pair->src_addr.all);
-
-    egress_key.port = pkt_ip_pair->src_port;
-    value = bpf_map_lookup_elem(&nat6_static_mappings, &egress_key);
-    if (value) {
-        return value;
-    }
-
-    egress_key.port = 0;
-    return bpf_map_lookup_elem(&nat6_static_mappings, &egress_key);
-}
 
 static __always_inline int ipv6_egress_prefix_check_and_replace(struct __sk_buff *skb,
                                                                 struct scan_ipv6_idx *idx,
@@ -483,53 +234,6 @@ do_nptv6:
 #undef BPF_LOG_TOPIC
 }
 
-static __always_inline int check_ingress_mapping_exist(struct __sk_buff *skb, u8 ip_protocol,
-                                                       const struct inet_pair *pkt_ip_pair,
-                                                       __be64 *local_client_prefix) {
-#define BPF_LOG_TOPIC "check_ingress_mapping_exist"
-    struct static_nat6_mapping_key ingress_key = {0};
-    struct static_nat6_mapping_value *value = NULL;
-
-    __be64 dst_suffix, mapping_suffix;
-
-    ingress_key.l3_protocol = LANDSCAPE_IPV6_TYPE;
-    ingress_key.l4_protocol = ip_protocol;
-    ingress_key.gress = NAT_MAPPING_INGRESS;
-    ingress_key.prefixlen = 96;
-
-    ingress_key.port = pkt_ip_pair->dst_port;
-    value = bpf_map_lookup_elem(&nat6_static_mappings, &ingress_key);
-    if (value) {
-        goto process_mapping_value;
-    }
-
-    ingress_key.port = 0;
-    value = bpf_map_lookup_elem(&nat6_static_mappings, &ingress_key);
-    if (!value) {
-        return TC_ACT_SHOT;
-    }
-
-process_mapping_value:
-    if (value->addr.all[3] == 0 && value->addr.all[2] == 0) {
-        return TC_ACT_UNSPEC;
-    }
-
-    if (value->addr.ip != 0) {
-        COPY_ADDR_FROM(local_client_prefix, value->addr.bytes);
-        return TC_ACT_OK;
-    }
-
-    COPY_ADDR_FROM(&mapping_suffix, value->addr.bytes + 8);
-    COPY_ADDR_FROM(&dst_suffix, pkt_ip_pair->dst_addr.bits + 8);
-
-    if (mapping_suffix == dst_suffix) {
-        return TC_ACT_UNSPEC;
-    }
-
-    return TC_ACT_SHOT;
-#undef BPF_LOG_TOPIC
-}
-
 static __always_inline struct nat_timer_value_v6 *
 lookup_ct6_ingress(struct scan_ipv6_idx *idx, struct inet_pair *ip_pair, u8 npt_id_mask) {
     struct nat_timer_key_v6 key = {0};
@@ -625,14 +329,14 @@ static __always_inline int ipv6_ingress_prefix_check_and_replace(struct __sk_buf
         goto do_ingress_nptv6;
     }
 
-    ret = check_ingress_mapping_exist(skb, idx->l4_protocol, ip_pair, &local_client_prefix);
-    bool is_static = (ret != TC_ACT_SHOT);
-    need_prefix_replace = (ret == TC_ACT_OK);
+    ret = check_ingress_mapping_exist(idx->l4_protocol, ip_pair, &local_client_prefix);
+    bool is_static = (ret != NAT6_STATIC_MISS);
+    need_prefix_replace = (ret == NAT6_STATIC_REPLACE);
 
     __be64 client_prefix_hint = 0;
-    if (ret == TC_ACT_OK) {
+    if (ret == NAT6_STATIC_REPLACE) {
         client_prefix_hint = local_client_prefix;
-    } else if (ret == TC_ACT_UNSPEC) {
+    } else if (ret == NAT6_STATIC_PASS) {
         COPY_ADDR_FROM(&client_prefix_hint, ip_pair->dst_addr.bits);
     }
 
@@ -654,7 +358,7 @@ static __always_inline int ipv6_ingress_prefix_check_and_replace(struct __sk_buf
     }
 
 do_ingress_nptv6:
-    if (ret == TC_ACT_UNSPEC) {
+    if (ret == NAT6_STATIC_PASS) {
         u32 mark = skb->mark;
         barrier_var(mark);
         skb->mark = replace_cache_mask(mark, INGRESS_STATIC_MARK);
