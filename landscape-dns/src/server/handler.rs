@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, HashSet},
     future::Future,
-    net::IpAddr,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
@@ -12,13 +12,13 @@ use arc_swap::ArcSwap;
 #[cfg(test)]
 use arc_swap::ArcSwapOption;
 use hickory_proto::{
-    op::{Header, Metadata, ResponseCode},
+    op::{Header, Metadata, OpCode, ResponseCode},
     rr::{
         rdata::{
             svcb::{Alpn, IpHint, SvcParamKey, SvcParamValue, SVCB},
-            A, AAAA, HTTPS,
+            A, AAAA, HTTPS, PTR,
         },
-        Name, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType,
     },
 };
 use hickory_server::{
@@ -30,7 +30,6 @@ use moka::future::Cache;
 use uuid::Uuid;
 
 use crate::{
-    server::preflight::{self, PreflightDecision},
     server::rule::{RedirectSolution, ResolutionRule},
     server::{CacheRuntimeConfig, DohAdvertiseProvider, LocalDnsAnswerProvider, MetricSenderState},
     CacheDNSItem, CheckChainDnsResult, DNSCache,
@@ -42,13 +41,13 @@ use landscape_common::{
     dns::{DohRuntimeConfig, FlowDnsDesiredState, RuntimeDnsRule, RuntimeRedirectRule},
     event::DnsMetricMessage,
     flow::{DnsRuntimeMarkInfo, FlowMarkInfo},
+    hostname_registry::HostnameRegistry,
     metric::dns::{DnsMetric, DnsResultStatus},
 };
 
 const LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 const RULE_REFRESH_TTL_CAP: u32 = 5;
 const DDR_DISCOVERY_NAME: &str = "_dns.resolver.arpa.";
-const DDR_ZONE_NAME: &str = "resolver.arpa.";
 const DDR_TTL_SECS: u32 = 60;
 
 #[derive(Clone)]
@@ -272,24 +271,301 @@ impl DnsRequestHandler {
         None
     }
 
+    fn lookup_localhost(domain: &str, query_type: RecordType) -> (Vec<Record>, ResponseCode) {
+        const HOSTNAME_TTL: u32 = 60;
+        let name = domain.strip_suffix('.').unwrap_or(domain);
+        let Ok(rname) = Name::from_utf8(name) else {
+            return (vec![], ResponseCode::FormErr);
+        };
+
+        match query_type {
+            RecordType::A => {
+                let record =
+                    Record::from_rdata(rname, HOSTNAME_TTL, RData::A(A(Ipv4Addr::LOCALHOST)));
+                (vec![record], ResponseCode::NoError)
+            }
+            RecordType::AAAA => {
+                let record =
+                    Record::from_rdata(rname, HOSTNAME_TTL, RData::AAAA(AAAA(Ipv6Addr::LOCALHOST)));
+                (vec![record], ResponseCode::NoError)
+            }
+            _ => (vec![], ResponseCode::NoError),
+        }
+    }
+
     pub fn lookup_lan_hostname(
         &self,
         domain: &str,
+        hostname: &str,
         query_type: RecordType,
+        fallback_code: ResponseCode,
     ) -> (Vec<Record>, ResponseCode) {
         const HOSTNAME_TTL: u32 = 60;
-        if query_type != RecordType::A {
-            return (vec![], ResponseCode::NXDomain);
-        }
         let name = domain.strip_suffix('.').unwrap_or(domain);
-        if let Some(ip) = self.hostname_registry.resolve_a(name) {
-            let rname = Name::from_utf8(name).unwrap();
-            let rdata = RData::A(A(ip));
-            let record = Record::from_rdata(rname, HOSTNAME_TTL, rdata);
-            (vec![record], ResponseCode::NoError)
-        } else {
-            (vec![], ResponseCode::NXDomain)
+        let Ok(rname) = Name::from_utf8(name) else {
+            return (vec![], ResponseCode::FormErr);
+        };
+
+        match query_type {
+            RecordType::A => {
+                if let Some(ip) = self.hostname_registry.resolve_a_by_hostname(hostname) {
+                    let rdata = RData::A(A(ip));
+                    let record = Record::from_rdata(rname, HOSTNAME_TTL, rdata);
+                    (vec![record], ResponseCode::NoError)
+                } else {
+                    (vec![], fallback_code)
+                }
+            }
+            RecordType::AAAA => {
+                if let Some(ip) = self.hostname_registry.resolve_aaaa_by_hostname(hostname) {
+                    let rdata = RData::AAAA(AAAA(ip));
+                    let record = Record::from_rdata(rname, HOSTNAME_TTL, rdata);
+                    (vec![record], ResponseCode::NoError)
+                } else {
+                    (vec![], fallback_code)
+                }
+            }
+            _ => (vec![], fallback_code),
         }
+    }
+
+    pub fn resolve_lan_ptr_by_addr(
+        &self,
+        addr: &IpAddr,
+        name: &str,
+    ) -> Option<(Vec<Record>, ResponseCode)> {
+        const PTR_TTL: u32 = 60;
+
+        if !HostnameRegistry::is_managed_ptr_addr(addr) {
+            return None;
+        }
+
+        // localhost PTR is owned by the resolver, not the device registry.
+        if addr.is_loopback() {
+            let Ok(rname) = Name::from_utf8(name) else {
+                return Some((vec![], ResponseCode::FormErr));
+            };
+            let Ok(target) = Name::from_utf8("localhost.") else {
+                return Some((vec![], ResponseCode::FormErr));
+            };
+            let record = Record::from_rdata(rname, PTR_TTL, RData::PTR(PTR(target)));
+            return Some((vec![record], ResponseCode::NoError));
+        }
+
+        match self.hostname_registry.resolve_ptr_by_addr(addr) {
+            Some(fqdn) => {
+                let Ok(rname) = Name::from_utf8(name) else {
+                    return Some((vec![], ResponseCode::FormErr));
+                };
+                let Ok(target) = Name::from_utf8(&fqdn) else {
+                    return Some((vec![], ResponseCode::FormErr));
+                };
+                let rdata = RData::PTR(PTR(target));
+                let record = Record::from_rdata(rname, PTR_TTL, rdata);
+                Some((vec![record], ResponseCode::NoError))
+            }
+            None => Some((vec![], ResponseCode::NXDomain)),
+        }
+    }
+
+    pub async fn resolve_arpa(
+        &self,
+        domain: &str,
+        query_type: RecordType,
+    ) -> (Vec<Record>, ResponseCode, DnsResultStatus) {
+        // (1) Redirect (global check first)
+        if let Some((records, status, _, _)) = self.lookup_redirects(domain, query_type) {
+            return (records, ResponseCode::NoError, status);
+        }
+
+        // Strip .arpa. and dispatch by second-level label
+        let name = domain.strip_suffix('.').unwrap_or(domain);
+        let arpa_suffix = name.strip_suffix(".arpa").unwrap_or(name);
+        let label = arpa_suffix.rsplit('.').next().unwrap_or(arpa_suffix);
+
+        match label {
+            // (2) resolver.arpa. → DDR
+            "resolver" if arpa_suffix == "resolver" || arpa_suffix == "_dns.resolver" => {
+                if query_type == RecordType::SVCB && arpa_suffix == "_dns.resolver" {
+                    let records = self.build_ddr_records();
+                    return (records, ResponseCode::NoError, DnsResultStatus::Local);
+                }
+                (vec![], ResponseCode::NoError, DnsResultStatus::Local)
+            }
+            // (3) home.arpa. → hostname registry
+            "home" => {
+                return self.resolve_home_arpa(name, arpa_suffix, query_type);
+            }
+            // (4) in-addr.arpa. / ip6.arpa. → PTR
+            "in-addr" | "ip6" => {
+                // `parse_arpa_name` requires an FQDN, so parse `domain` (with its
+                // trailing dot), not the dot-stripped `name`.
+                let Ok(dns_name) = Name::from_str(domain) else {
+                    return (vec![], ResponseCode::NXDomain, DnsResultStatus::NxDomain);
+                };
+                let Ok(net) = dns_name.parse_arpa_name() else {
+                    return (vec![], ResponseCode::NXDomain, DnsResultStatus::NxDomain);
+                };
+                let addr = net.addr();
+
+                if let Some((records, code)) = self.resolve_lan_ptr_by_addr(&addr, name) {
+                    let status = if code == ResponseCode::NXDomain {
+                        DnsResultStatus::NxDomain
+                    } else {
+                        DnsResultStatus::Local
+                    };
+                    return (records, code, status);
+                }
+                return self.resolve_from_cache_or_upstream(domain, query_type).await;
+            }
+            // (5) ipv4only.arpa. → NODATA (special-use domain, RFC 8880)
+            "ipv4only" if arpa_suffix == "ipv4only" => {
+                (vec![], ResponseCode::NoError, DnsResultStatus::Local)
+            }
+            // (6) Other .arpa. → NXDOMAIN
+            _ => (vec![], ResponseCode::NXDomain, DnsResultStatus::NxDomain),
+        }
+    }
+
+    fn resolve_home_arpa(
+        &self,
+        name: &str,
+        arpa_suffix: &str,
+        query_type: RecordType,
+    ) -> (Vec<Record>, ResponseCode, DnsResultStatus) {
+        let hostname = match arpa_suffix.strip_suffix(".home") {
+            Some(h) if !h.is_empty() => h,
+            _ => return (vec![], ResponseCode::NXDomain, DnsResultStatus::NxDomain),
+        };
+        let (records, code) =
+            self.lookup_lan_hostname(name, hostname, query_type, ResponseCode::NXDomain);
+        let status = if code == ResponseCode::NXDomain {
+            DnsResultStatus::NxDomain
+        } else {
+            DnsResultStatus::Local
+        };
+        (records, code, status)
+    }
+
+    pub async fn resolve_forward(
+        &self,
+        domain: &str,
+        query_type: RecordType,
+    ) -> (Vec<Record>, ResponseCode, DnsResultStatus) {
+        // (1) Redirect
+        if let Some((records, status, _, _)) = self.lookup_redirects(domain, query_type) {
+            return (records, ResponseCode::NoError, status);
+        }
+
+        // Strip TLD and dispatch
+        let name = domain.strip_suffix('.').unwrap_or(domain).to_ascii_lowercase();
+        let tld = name.rsplit('.').next().unwrap_or(&name);
+
+        // (2a) Blocked TLDs → NXDOMAIN
+        if matches!(tld, "invalid" | "test" | "onion") {
+            return (vec![], ResponseCode::NXDomain, DnsResultStatus::NxDomain);
+        }
+        // (2b) Localhost → loopback
+        if tld == "localhost" {
+            let (records, code) = Self::lookup_localhost(domain, query_type);
+            return (records, code, DnsResultStatus::Local);
+        }
+        // (2c) Local TLD (LAN suffix or local.) → hostname registry
+        if self.hostname_registry.is_local_tld(tld) {
+            return self.resolve_local_domain(domain, &name, tld, query_type);
+        }
+
+        // (3) Cache → (4) Upstream
+        self.resolve_from_cache_or_upstream(domain, query_type).await
+    }
+
+    fn resolve_local_domain(
+        &self,
+        domain: &str,
+        name: &str,
+        tld: &str,
+        query_type: RecordType,
+    ) -> (Vec<Record>, ResponseCode, DnsResultStatus) {
+        let hostname = match name.strip_suffix(&format!(".{}", tld)) {
+            Some(h) if !h.is_empty() => h,
+            _ => return (vec![], ResponseCode::NXDomain, DnsResultStatus::NxDomain),
+        };
+        let fallback = if tld == "local" { ResponseCode::NoError } else { ResponseCode::NXDomain };
+        let (records, code) = self.lookup_lan_hostname(domain, hostname, query_type, fallback);
+        let status = if code == ResponseCode::NXDomain {
+            DnsResultStatus::NxDomain
+        } else {
+            DnsResultStatus::Local
+        };
+        (records, code, status)
+    }
+
+    async fn resolve_from_cache_or_upstream(
+        &self,
+        domain: &str,
+        query_type: RecordType,
+    ) -> (Vec<Record>, ResponseCode, DnsResultStatus) {
+        if let Some((cached_records, filter, code)) = self.lookup_cache(domain, query_type).await {
+            if is_type_filtered(query_type, &filter) {
+                return (vec![], code, DnsResultStatus::Filter);
+            }
+            return (filter_result(cached_records, &filter), code, DnsResultStatus::Hit);
+        }
+
+        let resolves = self.resolves.load();
+        for (_index, resolver) in resolves.iter() {
+            if resolver.is_match(domain) {
+                let filter = resolver.filter_mode();
+                if is_type_filtered(query_type, &filter) {
+                    return (vec![], ResponseCode::NoError, DnsResultStatus::Filter);
+                }
+
+                match with_lookup_timeout(resolver.lookup(domain, query_type), LOOKUP_TIMEOUT).await
+                {
+                    Ok(rdata_vec) => {
+                        self.insert(
+                            domain,
+                            query_type,
+                            rdata_vec.clone(),
+                            ResponseCode::NoError,
+                            resolver.mark(),
+                            filter.clone(),
+                            Some(resolver.get_config_id()),
+                            Some(resolver.order()),
+                        )
+                        .await;
+                        return (
+                            filter_result(rdata_vec, &filter),
+                            ResponseCode::NoError,
+                            DnsResultStatus::Normal,
+                        );
+                    }
+                    Err(err) => {
+                        let code = err.to_response_code();
+                        let status = match code {
+                            ResponseCode::NXDomain => DnsResultStatus::NxDomain,
+                            ResponseCode::NoError => DnsResultStatus::Normal,
+                            _ => DnsResultStatus::Error,
+                        };
+                        if code == ResponseCode::NXDomain || code == ResponseCode::NoError {
+                            self.insert(
+                                domain,
+                                query_type,
+                                vec![],
+                                code,
+                                resolver.mark(),
+                                filter.clone(),
+                                Some(resolver.get_config_id()),
+                                Some(resolver.order()),
+                            )
+                            .await;
+                        }
+                        return (vec![], code, status);
+                    }
+                }
+            }
+        }
+        (vec![], ResponseCode::NoError, DnsResultStatus::Normal)
     }
 
     pub async fn check_domain(
@@ -300,11 +576,8 @@ impl DnsRequestHandler {
     ) -> CheckChainDnsResult {
         let mut result = CheckChainDnsResult::default();
 
-        if let Some(local_result) = Self::check_result_from_preflight(
-            preflight::classify_hard_local_zone(domain, query_type),
-        ) {
-            return local_result;
-        }
+        let name = domain.strip_suffix('.').unwrap_or(domain).to_ascii_lowercase();
+        let tld = name.rsplit('.').next().unwrap_or(&name);
 
         if let Some((records, _status, id, dynamic_source)) =
             self.lookup_redirects(domain, query_type)
@@ -312,10 +585,25 @@ impl DnsRequestHandler {
             result.redirect_id = id;
             result.dynamic_redirect_source = dynamic_source;
             result.records = Some(crate::to_common_records(records));
-        } else if let Some(local_result) =
-            Self::check_result_from_preflight(preflight::classify_overrideable_local_zone(domain))
-        {
-            return local_result;
+        } else if matches!(tld, "invalid" | "test" | "onion") {
+            return result;
+        } else if tld == "localhost" {
+            let (records, _) = Self::lookup_localhost(domain, query_type);
+            result.records = Some(crate::to_common_records(records));
+            return result;
+        } else if name.ends_with(".arpa") {
+            let (records, _, _) = self.resolve_arpa(domain, query_type).await;
+            result.records = Some(crate::to_common_records(records));
+            return result;
+        } else if self.hostname_registry.is_local_tld(tld) {
+            let hostname = name.strip_suffix(&format!(".{}", tld)).filter(|h| !h.is_empty());
+            if let Some(hostname) = hostname {
+                let code =
+                    if tld == "local" { ResponseCode::NoError } else { ResponseCode::NXDomain };
+                let (records, _) = self.lookup_lan_hostname(domain, hostname, query_type, code);
+                result.records = Some(crate::to_common_records(records));
+            }
+            return result;
         } else {
             let resolves = self.resolves.load();
             for (_index, resolver) in resolves.iter() {
@@ -375,22 +663,47 @@ impl DnsRequestHandler {
         query_type: RecordType,
         apply_filter: bool,
     ) -> Result<CheckChainDnsResult, DnsCheckError> {
-        if let Some(local_result) = Self::check_result_from_preflight(
-            preflight::classify_hard_local_zone(domain, query_type),
-        ) {
-            self.clear_cache_entry_and_refresh_maps_if_present(domain, query_type).await;
-            return Ok(local_result);
-        }
+        let name = domain.strip_suffix('.').unwrap_or(domain).to_ascii_lowercase();
+        let tld = name.rsplit('.').next().unwrap_or(&name);
 
         if self.lookup_redirects(domain, query_type).is_some() {
             return Err(DnsCheckError::RefreshRedirected(domain.to_string()));
         }
 
-        if let Some(local_result) =
-            Self::check_result_from_preflight(preflight::classify_overrideable_local_zone(domain))
-        {
+        if matches!(tld, "invalid" | "test" | "onion") {
+            return Ok(CheckChainDnsResult::default());
+        }
+
+        if tld == "localhost" {
+            let (records, _) = Self::lookup_localhost(domain, query_type);
+            return Ok(CheckChainDnsResult {
+                records: Some(crate::to_common_records(records)),
+                ..Default::default()
+            });
+        }
+
+        if name.ends_with(".arpa") {
             self.clear_cache_entry_and_refresh_maps_if_present(domain, query_type).await;
-            return Ok(local_result);
+            let (records, _, _) = self.resolve_arpa(domain, query_type).await;
+            return Ok(CheckChainDnsResult {
+                records: Some(crate::to_common_records(records)),
+                ..Default::default()
+            });
+        }
+
+        if self.hostname_registry.is_local_tld(tld) {
+            self.clear_cache_entry_and_refresh_maps_if_present(domain, query_type).await;
+            let hostname = name.strip_suffix(&format!(".{}", tld)).filter(|h| !h.is_empty());
+            if let Some(hostname) = hostname {
+                let code =
+                    if tld == "local" { ResponseCode::NoError } else { ResponseCode::NXDomain };
+                let (records, _) = self.lookup_lan_hostname(domain, hostname, query_type, code);
+                return Ok(CheckChainDnsResult {
+                    records: Some(crate::to_common_records(records)),
+                    ..Default::default()
+                });
+            }
+            return Ok(CheckChainDnsResult::default());
         }
 
         let resolves = self.resolves.load();
@@ -478,16 +791,6 @@ impl DnsRequestHandler {
         }
 
         Err(DnsCheckError::RefreshRequiresRule(domain.to_string()))
-    }
-
-    fn check_result_from_preflight(decision: PreflightDecision) -> Option<CheckChainDnsResult> {
-        match decision {
-            PreflightDecision::Respond { records, .. } => Some(CheckChainDnsResult {
-                records: Some(crate::to_common_records(records)),
-                ..Default::default()
-            }),
-            PreflightDecision::Continue => None,
-        }
     }
 
     async fn clear_cache_entry(&self, domain: &str, query_type: RecordType) {
@@ -668,99 +971,6 @@ impl DnsRequestHandler {
         }
     }
 
-    async fn send_records_response<R: ResponseHandler>(
-        &self,
-        request: &Request,
-        mut response_handle: R,
-        code: ResponseCode,
-        records: Vec<Record>,
-    ) -> ResponseInfo {
-        let mut metadata = Metadata::response_from_request(&request.metadata);
-        metadata.response_code = code;
-        metadata.recursion_available = true;
-        metadata.authoritative = true;
-
-        let builder = MessageResponseBuilder::from_message_request(request);
-        let result = if records.is_empty() {
-            let response = builder.build_no_records(metadata);
-            response_handle.send_response(response).await
-        } else {
-            let response = builder.build(
-                metadata,
-                records.iter(),
-                vec![].into_iter(),
-                vec![].into_iter(),
-                vec![].into_iter(),
-            );
-            response_handle.send_response(response).await
-        };
-
-        match result {
-            Ok(info) => info,
-            Err(e) => {
-                tracing::error!("Response failed: {}", e);
-                serve_failed(&request.metadata)
-            }
-        }
-    }
-
-    async fn send_preflight_response<R: ResponseHandler>(
-        &self,
-        request: &Request,
-        response_handle: R,
-        domain: String,
-        query_type: RecordType,
-        code: ResponseCode,
-        records: Vec<Record>,
-        status: DnsResultStatus,
-        start_time: Instant,
-        src_ip: std::net::IpAddr,
-    ) -> ResponseInfo {
-        let answers = records.iter().map(|r| r.to_string()).collect();
-        let response = self.send_records_response(request, response_handle, code, records).await;
-        self.send_metric(domain, query_type, code, status, start_time, src_ip, answers);
-        response
-    }
-
-    async fn try_handle_resolver_arpa_request<R: ResponseHandler>(
-        &self,
-        request: &Request,
-        response_handle: &mut R,
-    ) -> Option<ResponseInfo> {
-        let req = request.queries.queries().first()?;
-        let query_name = req.name().to_string().to_ascii_lowercase();
-        if !is_resolver_arpa_name(&query_name) {
-            return None;
-        }
-
-        let records = if req.query_type() == RecordType::SVCB && query_name == DDR_DISCOVERY_NAME {
-            self.build_ddr_records()
-        } else {
-            Vec::new()
-        };
-
-        let mut metadata = Metadata::response_from_request(&request.metadata);
-        metadata.response_code = ResponseCode::NoError;
-        metadata.authoritative = true;
-        metadata.recursion_available = true;
-
-        let response = MessageResponseBuilder::from_message_request(request).build(
-            metadata,
-            records.iter(),
-            vec![].into_iter(),
-            vec![].into_iter(),
-            vec![].into_iter(),
-        );
-
-        Some(match response_handle.send_response(response).await {
-            Ok(info) => info,
-            Err(e) => {
-                tracing::error!("DDR response failed: {}", e);
-                serve_failed(&request.metadata)
-            }
-        })
-    }
-
     fn build_ddr_records(&self) -> Vec<Record> {
         let Some(doh_runtime) = self.doh_runtime.as_ref() else {
             return Vec::new();
@@ -791,7 +1001,7 @@ impl RequestHandler for DnsRequestHandler {
     ) -> ResponseInfo {
         let start_time = Instant::now();
         let queries = request.queries.queries();
-        if !matches!(preflight::classify_query_count(queries.len()), PreflightDecision::Continue) {
+        if queries.len() != 1 {
             return self.send_error_response(request, response_handle, ResponseCode::FormErr).await;
         }
 
@@ -800,185 +1010,45 @@ impl RequestHandler for DnsRequestHandler {
         let query_type = req.query_type();
         let src_ip = request.src().ip();
 
-        if let PreflightDecision::Respond { code, records, status } =
-            preflight::classify_hard_query(request.metadata.op_code, req)
-        {
-            return self
-                .send_preflight_response(
-                    request,
-                    response_handle,
-                    domain,
-                    query_type,
-                    code,
-                    records,
-                    status,
-                    start_time,
-                    src_ip,
-                )
-                .await;
+        // Validation
+        if request.metadata.op_code != OpCode::Query {
+            return self.send_error_response(request, response_handle, ResponseCode::NotImp).await;
+        }
+        if req.query_class() != DNSClass::IN {
+            return self.send_error_response(request, response_handle, ResponseCode::Refused).await;
+        }
+        match query_type {
+            RecordType::ANY | RecordType::AXFR | RecordType::IXFR => {
+                return self
+                    .send_error_response(request, response_handle, ResponseCode::Refused)
+                    .await;
+            }
+            RecordType::OPT | RecordType::ZERO => {
+                return self
+                    .send_error_response(request, response_handle, ResponseCode::FormErr)
+                    .await;
+            }
+            RecordType::TSIG | RecordType::Unknown(249) => {
+                return self
+                    .send_error_response(request, response_handle, ResponseCode::NotImp)
+                    .await;
+            }
+            _ => {}
         }
 
-        if let Some(info) =
-            self.try_handle_resolver_arpa_request(request, &mut response_handle).await
-        {
-            return info;
-        }
+        // Dispatch
+        let (records, code, status) = if domain.ends_with(".arpa.") {
+            self.resolve_arpa(&domain, query_type).await
+        } else {
+            self.resolve_forward(&domain, query_type).await
+        };
 
-        if let PreflightDecision::Respond { code, records, status } =
-            preflight::classify_hard_local_zone(&domain, query_type)
-        {
-            self.clear_cache_entry_and_refresh_maps_if_present(&domain, query_type).await;
-            return self
-                .send_preflight_response(
-                    request,
-                    response_handle,
-                    domain,
-                    query_type,
-                    code,
-                    records,
-                    status,
-                    start_time,
-                    src_ip,
-                )
-                .await;
-        }
-
+        // Build response
         let mut metadata = Metadata::response_from_request(&request.metadata);
-        metadata.response_code = ResponseCode::NoError;
+        metadata.response_code = code;
         metadata.authoritative = true;
         metadata.recursion_available = true;
 
-        let mut records = vec![];
-        let mut status = DnsResultStatus::Normal;
-
-        // 1. Redirects
-        if let Some((redirect_records, redirect_status, _, _)) =
-            self.lookup_redirects(&domain, query_type)
-        {
-            records = redirect_records;
-            status = redirect_status;
-        }
-        // 1.5. LAN hostname
-        else if self.hostname_registry.is_local_domain(&domain) {
-            let (hostname_records, code) = self.lookup_lan_hostname(&domain, query_type);
-            metadata.response_code = code;
-            records = hostname_records;
-            status = if code == ResponseCode::NXDomain {
-                DnsResultStatus::NxDomain
-            } else {
-                DnsResultStatus::Local
-            };
-        }
-        // 2. Built-in local zones that user redirects may override
-        else if let PreflightDecision::Respond {
-            code,
-            records: local_records,
-            status: local_status,
-        } = preflight::classify_overrideable_local_zone(&domain)
-        {
-            self.clear_cache_entry_and_refresh_maps_if_present(&domain, query_type).await;
-            return self
-                .send_preflight_response(
-                    request,
-                    response_handle,
-                    domain,
-                    query_type,
-                    code,
-                    local_records,
-                    local_status,
-                    start_time,
-                    src_ip,
-                )
-                .await;
-        }
-        // 3. Cache
-        else if let Some((cached_records, filter, code)) =
-            self.lookup_cache(&domain, query_type).await
-        {
-            metadata.response_code = code;
-            if is_type_filtered(query_type, &filter) {
-                status = DnsResultStatus::Filter;
-            } else {
-                records = filter_result(cached_records, &filter);
-                status = DnsResultStatus::Hit;
-            }
-        }
-        // 4. Resolution Rules (with Early Filter check)
-        else {
-            let resolves = self.resolves.load();
-            let mut resolved = false;
-            for (_index, resolver) in resolves.iter() {
-                if resolver.is_match(&domain) {
-                    resolved = true;
-                    let filter = resolver.filter_mode();
-
-                    // Early return if current query type is filtered by rule
-                    if is_type_filtered(query_type, &filter) {
-                        status = DnsResultStatus::Filter;
-                        break;
-                    }
-
-                    match with_lookup_timeout(resolver.lookup(&domain, query_type), LOOKUP_TIMEOUT)
-                        .await
-                    {
-                        Ok(rdata_vec) => {
-                            self.insert(
-                                &domain,
-                                query_type,
-                                rdata_vec.clone(),
-                                ResponseCode::NoError,
-                                resolver.mark(),
-                                filter.clone(),
-                                Some(resolver.get_config_id()),
-                                Some(resolver.order()),
-                            )
-                            .await;
-
-                            records = filter_result(rdata_vec, &filter);
-                            status = DnsResultStatus::Normal;
-                        }
-                        Err(err) => {
-                            let code = err.to_response_code();
-                            status = match code {
-                                ResponseCode::NXDomain => DnsResultStatus::NxDomain,
-                                ResponseCode::NoError => DnsResultStatus::Normal,
-                                _ => DnsResultStatus::Error,
-                            };
-
-                            if code == ResponseCode::NXDomain || code == ResponseCode::NoError {
-                                self.insert(
-                                    &domain,
-                                    query_type,
-                                    vec![],
-                                    code,
-                                    resolver.mark(),
-                                    filter.clone(),
-                                    Some(resolver.get_config_id()),
-                                    Some(resolver.order()),
-                                )
-                                .await;
-                            }
-                            self.send_metric(
-                                domain.clone(),
-                                query_type,
-                                code,
-                                status,
-                                start_time,
-                                src_ip,
-                                vec![],
-                            );
-                            return self.send_error_response(request, response_handle, code).await;
-                        }
-                    }
-                    break;
-                }
-            }
-            if !resolved {
-                status = DnsResultStatus::Normal;
-            }
-        }
-
-        // 5. Send Response
         let builder = MessageResponseBuilder::from_message_request(request);
         let result = if records.is_empty() {
             let response = builder.build_no_records(metadata);
@@ -994,15 +1064,7 @@ impl RequestHandler for DnsRequestHandler {
             response_handle.send_response(response).await
         };
         let answers = records.iter().map(|r| r.to_string()).collect();
-        self.send_metric(
-            domain,
-            query_type,
-            metadata.response_code,
-            status,
-            start_time,
-            src_ip,
-            answers,
-        );
+        self.send_metric(domain, query_type, code, status, start_time, src_ip, answers);
 
         match result {
             Ok(info) => info,
@@ -1020,10 +1082,6 @@ fn serve_failed(req_metadata: &Metadata) -> ResponseInfo {
     metadata.recursion_available = true;
     metadata.authoritative = true;
     ResponseInfo::from(Header { metadata, counts: Default::default() })
-}
-
-fn is_resolver_arpa_name(name: &str) -> bool {
-    name == DDR_ZONE_NAME || name.ends_with(".resolver.arpa.")
 }
 
 fn build_ddr_records(
@@ -1223,10 +1281,33 @@ mod tests {
         Arc::new(ArcSwap::from_pointee(test_cache_runtime_config(negative_cache_ttl)))
     }
 
+    fn make_test_handler() -> DnsRequestHandler {
+        DnsRequestHandler::new(
+            ChainDnsServerInitInfo { dns_rules: vec![], redirect_rules: vec![] }.into(),
+            shared_cache_runtime_config(5),
+            1,
+            Arc::new(ArcSwapOption::new(None)),
+            None,
+            None,
+            test_hostname_registry(),
+            None,
+        )
+    }
+
     fn test_hostname_registry() -> Arc<landscape_common::hostname_registry::HostnameRegistry> {
         landscape_common::hostname_registry::HostnameRegistry::new_for_test(
             landscape_common::hostname_registry::HostnameRegistryConfig::default(),
         )
+    }
+
+    fn arpa_name_from_ipv6(addr: Ipv6Addr) -> String {
+        let octets = addr.octets();
+        let nibbles: Vec<String> = octets
+            .iter()
+            .rev()
+            .flat_map(|b| [format!("{:x}", b & 0x0f), format!("{:x}", b >> 4)])
+            .collect();
+        format!("{}.ip6.arpa.", nibbles.join("."))
     }
 
     fn test_runtime_rule() -> DNSRuntimeRule {
@@ -1314,12 +1395,270 @@ mod tests {
     }
 
     #[test]
-    fn resolver_arpa_name_matches_local_zone_only() {
-        assert!(is_resolver_arpa_name("resolver.arpa."));
-        assert!(is_resolver_arpa_name("_dns.resolver.arpa."));
-        assert!(is_resolver_arpa_name("foo.bar.resolver.arpa."));
-        assert!(!is_resolver_arpa_name("evilresolver.arpa."));
-        assert!(!is_resolver_arpa_name("resolver.arpa.example."));
+    fn resolve_arpa_dispatches_by_second_level_label() {
+        run_async_test(async {
+            let handler = make_test_handler();
+
+            // resolver.arpa. → resolver branch
+            let (records, code, status) =
+                handler.resolve_arpa("resolver.arpa.", RecordType::A).await;
+            assert!(records.is_empty());
+            assert_eq!(code, ResponseCode::NoError);
+            assert_eq!(status, DnsResultStatus::Local);
+
+            // home.arpa. → home branch
+            let (records, code, _) = handler.resolve_arpa("home.arpa.", RecordType::A).await;
+            assert!(records.is_empty());
+            assert_eq!(code, ResponseCode::NXDomain);
+
+            // in-addr.arpa. → reverse branch
+            let (records, _code, _) =
+                handler.resolve_arpa("1.0.0.10.in-addr.arpa.", RecordType::PTR).await;
+            assert!(records.is_empty());
+
+            // ip6.arpa. → reverse branch
+            let (records, _code, _) = handler
+                .resolve_arpa(
+                    "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.",
+                    RecordType::PTR,
+                )
+                .await;
+            assert!(records.is_empty());
+
+            // evilresolver.arpa. is not resolver → NXDOMAIN
+            let (records, code, _) =
+                handler.resolve_arpa("evilresolver.arpa.", RecordType::A).await;
+            assert!(records.is_empty());
+            assert_eq!(code, ResponseCode::NXDomain);
+        });
+    }
+
+    #[test]
+    fn resolve_forward_blocked_tld_returns_nxdomain() {
+        run_async_test(async {
+            let handler = make_test_handler();
+
+            for domain in &["somewhere.onion.", "foo.invalid.", "bar.test."] {
+                let (records, code, status) = handler.resolve_forward(domain, RecordType::A).await;
+                assert!(records.is_empty(), "records for {} should be empty", domain);
+                assert_eq!(code, ResponseCode::NXDomain, "code for {} should be NXDomain", domain);
+                assert_eq!(
+                    status,
+                    DnsResultStatus::NxDomain,
+                    "status for {} should be NxDomain",
+                    domain
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn resolve_arpa_home_returns_nxdomain_for_unknown_hostname() {
+        run_async_test(async {
+            let handler = make_test_handler();
+
+            let (records, code, status) =
+                handler.resolve_arpa("nonexistent.home.arpa.", RecordType::A).await;
+            assert!(records.is_empty());
+            assert_eq!(code, ResponseCode::NXDomain);
+            assert_eq!(status, DnsResultStatus::NxDomain);
+        });
+    }
+
+    #[test]
+    fn resolve_arpa_reverse_returns_registered_lan_hostname() {
+        run_async_test(async {
+            let registry = landscape_common::hostname_registry::HostnameRegistry::new(
+                landscape_common::hostname_registry::HostnameRegistryConfig::default(),
+                vec![("nas".to_string(), Ipv4Addr::new(192, 168, 1, 50))],
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::IPv4AssignEventReader::new(rx)
+                },
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::EnrolledDeviceEventReader::new(rx)
+                },
+            );
+
+            let handler = DnsRequestHandler::new(
+                ChainDnsServerInitInfo::default().into(),
+                shared_cache_runtime_config(5),
+                1,
+                Arc::new(ArcSwapOption::new(None)),
+                None,
+                None,
+                registry,
+                None,
+            );
+
+            let (records, code, status) =
+                handler.resolve_arpa("50.1.168.192.in-addr.arpa.", RecordType::PTR).await;
+            assert_eq!(code, ResponseCode::NoError);
+            assert_eq!(status, DnsResultStatus::Local);
+            assert_eq!(records.len(), 1);
+            match &records[0].data {
+                RData::PTR(ptr) => assert_eq!(ptr.0.to_string(), "nas.lan."),
+                other => panic!("expected PTR record, got {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn resolve_arpa_reverse_ipv6_returns_registered_lan_hostname() {
+        run_async_test(async {
+            let ipv6 = Ipv6Addr::new(0xfd01, 0, 0, 0, 0, 0, 0, 99);
+            let registry = landscape_common::hostname_registry::HostnameRegistry::new(
+                landscape_common::hostname_registry::HostnameRegistryConfig::default(),
+                vec![("srv".to_string(), Ipv4Addr::new(192, 168, 1, 1))],
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::IPv4AssignEventReader::new(rx)
+                },
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::EnrolledDeviceEventReader::new(rx)
+                },
+            );
+            registry.set_ipv6("srv", ipv6);
+            let handler = DnsRequestHandler::new(
+                ChainDnsServerInitInfo::default().into(),
+                shared_cache_runtime_config(5),
+                1,
+                Arc::new(ArcSwapOption::new(None)),
+                None,
+                None,
+                registry,
+                None,
+            );
+
+            let (records, code, status) = {
+                let arpa_name = arpa_name_from_ipv6(ipv6);
+                handler.resolve_arpa(&arpa_name, RecordType::PTR).await
+            };
+            assert_eq!(code, ResponseCode::NoError);
+            assert_eq!(status, DnsResultStatus::Local);
+            assert_eq!(records.len(), 1);
+            match &records[0].data {
+                RData::PTR(ptr) => assert_eq!(ptr.0.to_string(), "srv.lan."),
+                other => panic!("expected PTR record, got {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn resolve_forward_local_domain_aaaa_returns_registered_ipv6() {
+        run_async_test(async {
+            let ipv6 = Ipv6Addr::new(0xfd00, 0, 0, 0, 0, 0, 0, 2);
+            let registry = landscape_common::hostname_registry::HostnameRegistry::new(
+                landscape_common::hostname_registry::HostnameRegistryConfig::default(),
+                vec![("dev".to_string(), Ipv4Addr::new(192, 168, 1, 100))],
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::IPv4AssignEventReader::new(rx)
+                },
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::EnrolledDeviceEventReader::new(rx)
+                },
+            );
+            registry.set_ipv6("dev", ipv6);
+            let handler = DnsRequestHandler::new(
+                ChainDnsServerInitInfo::default().into(),
+                shared_cache_runtime_config(5),
+                1,
+                Arc::new(ArcSwapOption::new(None)),
+                None,
+                None,
+                registry,
+                None,
+            );
+
+            let (records, code, status) =
+                handler.resolve_forward("dev.lan.", RecordType::AAAA).await;
+            assert_eq!(code, ResponseCode::NoError);
+            assert_eq!(status, DnsResultStatus::Local);
+            assert_eq!(records.len(), 1);
+            match &records[0].data {
+                RData::AAAA(aaaa) => assert_eq!(aaaa.0, ipv6),
+                other => panic!("expected AAAA record, got {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn resolve_forward_local_domain_aaaa_returns_nxdomain_when_no_ipv6() {
+        run_async_test(async {
+            let registry = landscape_common::hostname_registry::HostnameRegistry::new(
+                landscape_common::hostname_registry::HostnameRegistryConfig::default(),
+                vec![("dev".to_string(), Ipv4Addr::new(192, 168, 1, 100))],
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::IPv4AssignEventReader::new(rx)
+                },
+                {
+                    let (_tx, rx) = tokio::sync::broadcast::channel(8);
+                    landscape_common::event::hub::EnrolledDeviceEventReader::new(rx)
+                },
+            );
+            let handler = DnsRequestHandler::new(
+                ChainDnsServerInitInfo::default().into(),
+                shared_cache_runtime_config(5),
+                1,
+                Arc::new(ArcSwapOption::new(None)),
+                None,
+                None,
+                registry,
+                None,
+            );
+
+            let (records, code, status) =
+                handler.resolve_forward("dev.lan.", RecordType::AAAA).await;
+            assert_eq!(code, ResponseCode::NXDomain);
+            assert_eq!(status, DnsResultStatus::NxDomain);
+            assert!(records.is_empty());
+        });
+    }
+
+    #[test]
+    fn resolve_arpa_loopback_returns_localhost_ptr() {
+        run_async_test(async {
+            let handler = make_test_handler();
+
+            let (records, code, status) =
+                handler.resolve_arpa("1.0.0.127.in-addr.arpa.", RecordType::PTR).await;
+            assert_eq!(code, ResponseCode::NoError);
+            assert_eq!(status, DnsResultStatus::Local);
+            assert_eq!(records.len(), 1);
+            match &records[0].data {
+                RData::PTR(ptr) => assert_eq!(ptr.0.to_string(), "localhost."),
+                other => panic!("expected PTR record, got {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn resolve_arpa_ipv4only_returns_nodata() {
+        run_async_test(async {
+            let handler = make_test_handler();
+
+            let (records, code, _status) =
+                handler.resolve_arpa("ipv4only.arpa.", RecordType::A).await;
+            assert!(records.is_empty());
+            assert_eq!(code, ResponseCode::NoError);
+        });
+    }
+
+    #[test]
+    fn resolve_arpa_unknown_returns_nxdomain() {
+        run_async_test(async {
+            let handler = make_test_handler();
+
+            let (records, code, _status) =
+                handler.resolve_arpa("foo.bar.arpa.", RecordType::A).await;
+            assert!(records.is_empty());
+            assert_eq!(code, ResponseCode::NXDomain);
+        });
     }
 
     #[test]
@@ -1456,7 +1795,7 @@ mod tests {
     }
 
     #[test]
-    fn check_domain_handles_overrideable_local_zones_before_upstream_rules() {
+    fn check_domain_handles_local_tld_before_upstream_rules() {
         run_async_test(async {
             let handler = DnsRequestHandler::new(
                 ChainDnsServerInitInfo {
