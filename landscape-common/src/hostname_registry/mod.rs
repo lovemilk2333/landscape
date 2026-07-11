@@ -127,19 +127,24 @@ impl HostnameRegistry {
         if !Self::is_managed_ptr_addr(addr) {
             return None;
         }
-        let mut candidates: Vec<_> = self
-            .hostname_map
-            .iter()
-            .filter_map(|entry| {
-                let matches = match addr {
-                    IpAddr::V4(ip) => entry.value().ipv4 == *ip,
-                    IpAddr::V6(ip) => entry.value().ipv6 == Some(*ip),
-                };
-                matches.then(|| entry.key().clone())
-            })
-            .collect();
-        candidates.sort_unstable();
-        let hostname = candidates.first()?;
+        let mut enrolled: Vec<String> = Vec::new();
+        let mut dhcp: Vec<String> = Vec::new();
+        for entry in self.hostname_map.iter() {
+            let matches = match addr {
+                IpAddr::V4(ip) => entry.value().ipv4 == *ip,
+                IpAddr::V6(ip) => entry.value().ipv6 == Some(*ip),
+            };
+            if matches {
+                if entry.value().from_enrolled_device {
+                    enrolled.push(entry.key().clone());
+                } else {
+                    dhcp.push(entry.key().clone());
+                }
+            }
+        }
+        enrolled.sort_unstable();
+        dhcp.sort_unstable();
+        let hostname = enrolled.first().or_else(|| dhcp.first())?;
         let suffix = &self.config.load().lan_suffix;
         if suffix.is_empty() {
             Some(format!("{}.", hostname))
@@ -497,6 +502,54 @@ mod tests {
         let ip = Ipv4Addr::new(10, 0, 0, 5);
         let reg = registry_with_config(&[("dev", v4_record(ip, false))], "");
         assert_eq!(reg.resolve_ptr_by_addr(&IpAddr::V4(ip)), Some("dev.".to_string()));
+    }
+
+    #[test]
+    fn resolve_ptr_prefers_enrolled_device_over_dhcp_for_same_ip() {
+        let ip = Ipv4Addr::new(10, 0, 0, 10);
+        let reg =
+            registry_with(&[("desktop-abc", v4_record(ip, false)), ("mysrv", v4_record(ip, true))]);
+        assert_eq!(reg.resolve_ptr_by_addr(&IpAddr::V4(ip)), Some("mysrv.lan.".to_string()));
+    }
+
+    #[test]
+    fn resolve_ptr_falls_back_to_dhcp_when_no_enrolled_device() {
+        let ip = Ipv4Addr::new(10, 0, 0, 20);
+        let reg = registry_with(&[("desktop-xyz", v4_record(ip, false))]);
+        assert_eq!(reg.resolve_ptr_by_addr(&IpAddr::V4(ip)), Some("desktop-xyz.lan.".to_string()));
+    }
+
+    #[test]
+    fn resolve_ptr_picks_first_alphabetical_among_enrolled() {
+        let ip = Ipv4Addr::new(10, 0, 0, 30);
+        let reg = registry_with(&[
+            ("zulu", v4_record(ip, true)),
+            ("alpha", v4_record(ip, true)),
+            ("mid", v4_record(ip, false)),
+        ]);
+        assert_eq!(reg.resolve_ptr_by_addr(&IpAddr::V4(ip)), Some("alpha.lan.".to_string()));
+    }
+
+    #[test]
+    fn resolve_ptr_picks_first_alphabetical_among_dhcp_only() {
+        let ip = Ipv4Addr::new(10, 0, 0, 40);
+        let reg =
+            registry_with(&[("zebra", v4_record(ip, false)), ("apple", v4_record(ip, false))]);
+        assert_eq!(reg.resolve_ptr_by_addr(&IpAddr::V4(ip)), Some("apple.lan.".to_string()));
+    }
+
+    #[test]
+    fn resolve_ptr_ipv6_prefers_enrolled_over_dhcp() {
+        let ipv4 = Ipv4Addr::new(10, 0, 0, 50);
+        let ipv6 = Ipv6Addr::new(0xfd00, 0, 0, 0, 0, 0, 0, 88);
+        let reg = registry_with(&[
+            ("dhcp-v6", v6_record(ipv4, ipv6, false)),
+            ("enrolled-v6", v6_record(ipv4, ipv6, true)),
+        ]);
+        assert_eq!(
+            reg.resolve_ptr_by_addr(&IpAddr::V6(ipv6)),
+            Some("enrolled-v6.lan.".to_string())
+        );
     }
 
     // --- is_local_tld ---
