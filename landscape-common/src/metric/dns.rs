@@ -4,7 +4,7 @@ use std::net::IpAddr;
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "lowercase")]
-pub enum DnsResultStatus {
+pub enum DnsOutcome {
     Local,    // 重定向有值
     Block,    // 重定向空值
     Hit,      // 命中缓存
@@ -22,7 +22,7 @@ pub struct DnsMetric {
     pub domain: String,
     pub query_type: String,
     pub response_code: String,
-    pub status: DnsResultStatus,
+    pub status: DnsOutcome,
     pub report_time: u64,
     pub duration_ms: u32,
     #[cfg_attr(feature = "openapi", schema(value_type = String))]
@@ -59,7 +59,7 @@ pub struct DnsHistoryQueryParams {
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
     pub query_type: Option<String>,
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
-    pub status: Option<DnsResultStatus>,
+    pub status: Option<DnsOutcome>,
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
     pub min_duration_ms: Option<u32>,
     #[cfg_attr(feature = "openapi", schema(nullable = false))]
