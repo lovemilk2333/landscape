@@ -139,10 +139,11 @@ impl FlowConfigRepository {
             condition_sql
         );
 
-        let expr = Expr::cust_with_values(
-            &full_sql,
-            param_values.into_iter().map(|v| sea_orm::Value::String(Some(Box::new(v)))).collect(),
-        );
+        let values: Vec<sea_orm::Value> = param_values
+            .into_iter()
+            .map(|v| sea_orm::Value::String(Some(Box::new(v))))
+            .collect();
+        let expr = Expr::cust_with_values(&full_sql, values);
 
         // 查询执行
         let result = FlowConfigEntity::find().filter(expr).all(&self.db).await?;
