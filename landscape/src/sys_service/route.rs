@@ -165,6 +165,7 @@ fn find_route_target<'a>(
     match target {
         FlowTarget::Interface { name } => wan_infos.get(name),
         FlowTarget::Netns { container_name } => wan_infos.get(container_name),
+        FlowTarget::Tproxy { .. } => None,
     }
 }
 

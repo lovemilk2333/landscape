@@ -124,8 +124,11 @@ export default {
     add_target_rule: "Add egress rule",
     type_wan: "WAN Interface",
     type_docker: "Docker",
+    type_tproxy: "TProxy Port",
     iface_placeholder: "Interface name",
     container_placeholder: "Container name",
+    tproxy_addr_placeholder: "Address, default 127.0.0.1",
+    tproxy_port_placeholder: "Port",
     weight_placeholder: "Weight",
   },
   wan_rule_card: {

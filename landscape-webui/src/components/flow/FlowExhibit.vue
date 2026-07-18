@@ -2,7 +2,7 @@
 import { getFlowRuleByFlowId } from "@landscape-router/types/api/flow-rules/flow-rules";
 import type { FlowConfig } from "@landscape-router/types/api/schemas";
 import { onMounted, ref, watch, watchEffect } from "vue";
-import { Docker, NetworkWired } from "@vicons/fa";
+import { Docker, NetworkWired, Server } from "@vicons/fa";
 import { useFrontEndStore } from "@/stores/front_end_config";
 import { useI18n } from "vue-i18n";
 
@@ -47,12 +47,14 @@ async function refresh() {
           {{
             each.target.t === "netns"
               ? frontEndStore.MASK_INFO(each.target.container_name)
-              : frontEndStore.MASK_INFO(each.target.name)
+              : each.target.t === "tproxy"
+                ? frontEndStore.MASK_INFO(each.target.addr + ":" + each.target.port)
+                : frontEndStore.MASK_INFO(each.target.name)
           }}
           <span v-if="(each.weight ?? 1) !== 1"> ×{{ each.weight ?? 1 }}</span>
           <template #icon>
             <n-icon
-              :component="each.target.t === 'netns' ? Docker : NetworkWired"
+              :component="each.target.t === 'netns' ? Docker : each.target.t === 'tproxy' ? Server : NetworkWired"
             />
           </template>
         </n-tag>

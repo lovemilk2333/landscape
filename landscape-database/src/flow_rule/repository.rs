@@ -116,14 +116,18 @@ impl FlowConfigRepository {
 
     pub async fn find_by_target(&self, t: FlowTarget) -> Result<Vec<FlowConfig>, LdError> {
         // 构造条件 SQL 和参数
-        let (condition_sql, param_value) = match t {
+        let (condition_sql, param_values): (String, Vec<String>) = match t {
             FlowTarget::Interface { name } => (
-                "json_extract(json_each.value, '$.target.t') = 'interface' AND json_extract(json_each.value, '$.target.name') = ?",
-                name,
+                "json_extract(json_each.value, '$.target.t') = 'interface' AND json_extract(json_each.value, '$.target.name') = ?".to_string(),
+                vec![name],
             ),
             FlowTarget::Netns { container_name } => (
-                "json_extract(json_each.value, '$.target.t') = 'netns' AND json_extract(json_each.value, '$.target.container_name') = ?",
-                container_name,
+                "json_extract(json_each.value, '$.target.t') = 'netns' AND json_extract(json_each.value, '$.target.container_name') = ?".to_string(),
+                vec![container_name],
+            ),
+            FlowTarget::Tproxy { addr, port } => (
+                "json_extract(json_each.value, '$.target.t') = 'tproxy' AND json_extract(json_each.value, '$.target.addr') = ? AND json_extract(json_each.value, '$.target.port') = ?".to_string(),
+                vec![addr, port.to_string()],
             ),
         };
 
@@ -137,7 +141,7 @@ impl FlowConfigRepository {
 
         let expr = Expr::cust_with_values(
             &full_sql,
-            vec![sea_orm::Value::String(Some(Box::new(param_value)))],
+            param_values.into_iter().map(|v| sea_orm::Value::String(Some(Box::new(v)))).collect(),
         );
 
         // 查询执行

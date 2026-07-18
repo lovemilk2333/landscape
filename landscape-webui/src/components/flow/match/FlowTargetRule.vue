@@ -46,6 +46,7 @@ const docker_options = computed(() =>
 enum FlowTargetEnum {
   Interface = "interface",
   NetNS = "netns",
+  TProxy = "tproxy",
 }
 
 function onCreate(): WeightedFlowTarget {
@@ -65,6 +66,10 @@ function target_type_option(): any[] {
       label: t("flow.target_rule.type_docker"),
       value: "netns",
     },
+    {
+      label: t("flow.target_rule.type_tproxy"),
+      value: "tproxy",
+    },
   ];
 }
 
@@ -78,11 +83,20 @@ function handleUpdateValue(value: FlowTarget["t"], index: number) {
       },
       weight,
     };
-  } else {
+  } else if (value == FlowTargetEnum.NetNS) {
     target_rules.value[index] = {
       target: {
         t: FlowTargetEnum.NetNS,
         container_name: "",
+      },
+      weight,
+    };
+  } else {
+    target_rules.value[index] = {
+      target: {
+        t: FlowTargetEnum.TProxy,
+        addr: "127.0.0.1",
+        port: 1080,
       },
       weight,
     };
@@ -125,6 +139,20 @@ function handleUpdateValue(value: FlowTarget["t"], index: number) {
           :options="docker_options"
           :placeholder="t('flow.target_rule.container_placeholder')"
         />
+        <n-input-group v-else-if="value.target.t == 'tproxy'" :style="{ width: '56%' }">
+          <n-input
+            v-model:value="value.target.addr"
+            :style="{ width: '60%' }"
+            :placeholder="t('flow.target_rule.tproxy_addr_placeholder')"
+          />
+          <n-input-number
+            v-model:value="value.target.port"
+            :style="{ width: '40%' }"
+            :min="1"
+            :max="65535"
+            :placeholder="t('flow.target_rule.tproxy_port_placeholder')"
+          />
+        </n-input-group>
 
         <n-input-number
           v-model:value="value.weight"

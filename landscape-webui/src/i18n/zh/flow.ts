@@ -120,8 +120,11 @@ export default {
     add_target_rule: "增加一条出口规则",
     type_wan: "WAN 网卡",
     type_docker: "Docker",
+    type_tproxy: "TProxy 端口",
     iface_placeholder: "网卡名称",
     container_placeholder: "容器名称",
+    tproxy_addr_placeholder: "地址，默认 127.0.0.1",
+    tproxy_port_placeholder: "端口",
     weight_placeholder: "权重",
   },
   wan_rule_card: {

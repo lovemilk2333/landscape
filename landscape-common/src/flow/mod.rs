@@ -146,10 +146,19 @@ fn default_prefix_len() -> u8 {
 pub enum FlowTarget {
     Interface { name: String },
     Netns { container_name: String },
+    Tproxy {
+        #[serde(default = "default_tproxy_addr")]
+        addr: String,
+        port: u16,
+    },
 }
 
 fn default_flow_target_weight() -> u32 {
     1
+}
+
+fn default_tproxy_addr() -> String {
+    "127.0.0.1".to_string()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
