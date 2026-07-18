@@ -144,8 +144,12 @@ fn default_prefix_len() -> u8 {
 #[serde(tag = "t")]
 #[serde(rename_all = "snake_case")]
 pub enum FlowTarget {
-    Interface { name: String },
-    Netns { container_name: String },
+    Interface {
+        name: String,
+    },
+    Netns {
+        container_name: String,
+    },
     Tproxy {
         #[serde(default = "default_tproxy_addr")]
         addr: String,

@@ -139,7 +139,10 @@ function handleUpdateValue(value: FlowTarget["t"], index: number) {
           :options="docker_options"
           :placeholder="t('flow.target_rule.container_placeholder')"
         />
-        <n-input-group v-else-if="value.target.t == 'tproxy'" :style="{ width: '56%' }">
+        <n-input-group
+          v-else-if="value.target.t == 'tproxy'"
+          :style="{ width: '56%' }"
+        >
           <n-input
             v-model:value="value.target.addr"
             :style="{ width: '60%' }"
