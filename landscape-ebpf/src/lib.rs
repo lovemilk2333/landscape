@@ -54,11 +54,13 @@ static MAP_PATHS: Lazy<LandscapeMapPath> = Lazy::new(|| {
         // v4 version map path
         rt4_lan_map: PathBuf::from(format!("{}/rt4_lan_map", ebpf_map_path)),
         rt4_target_slot_map: PathBuf::from(format!("{}/rt4_target_slot_map", ebpf_map_path)),
+        rt4_proxy_map: PathBuf::from(format!("{}/rt4_proxy_map", ebpf_map_path)),
         flow4_dns_map: PathBuf::from(format!("{}/flow4_dns_map", ebpf_map_path)),
         flow4_ip_map: PathBuf::from(format!("{}/flow4_ip_map", ebpf_map_path)),
 
         rt6_lan_map: PathBuf::from(format!("{}/rt6_lan_map", ebpf_map_path)),
         rt6_target_slot_map: PathBuf::from(format!("{}/rt6_target_slot_map", ebpf_map_path)),
+        rt6_proxy_map: PathBuf::from(format!("{}/rt6_proxy_map", ebpf_map_path)),
         flow6_dns_map: PathBuf::from(format!("{}/flow6_dns_map", ebpf_map_path)),
         flow6_ip_map: PathBuf::from(format!("{}/flow6_ip_map", ebpf_map_path)),
 
@@ -101,11 +103,13 @@ pub(crate) struct LandscapeMapPath {
     /// route - LAN
     pub rt4_lan_map: PathBuf,
     pub rt4_target_slot_map: PathBuf,
+    pub rt4_proxy_map: PathBuf,
     pub flow4_dns_map: PathBuf,
     pub flow4_ip_map: PathBuf,
 
     pub rt6_lan_map: PathBuf,
     pub rt6_target_slot_map: PathBuf,
+    pub rt6_proxy_map: PathBuf,
     pub flow6_dns_map: PathBuf,
     pub flow6_ip_map: PathBuf,
 

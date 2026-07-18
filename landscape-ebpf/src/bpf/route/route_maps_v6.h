@@ -109,6 +109,20 @@ struct {
     __uint(pinning, LIBBPF_PIN_BY_NAME);
 } rt6_target_slot_map SEC(".maps");
 
+struct proxy_target_info_v6 {
+    union u_inet6_addr addr;
+    __be16 port;
+    __u8 _pad[6];
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, struct proxy_target_info_v6);
+    __uint(max_entries, 256);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} rt6_proxy_map SEC(".maps");
+
 struct rt_cache_key_v6 {
     union u_inet6_addr local_addr;
     union u_inet6_addr remote_addr;

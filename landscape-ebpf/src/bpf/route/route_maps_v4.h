@@ -108,6 +108,21 @@ struct {
     __uint(pinning, LIBBPF_PIN_BY_NAME);
 } rt4_target_slot_map SEC(".maps");
 
+// Tproxy/socks proxy target: flow_id → (addr, port)
+struct proxy_target_info_v4 {
+    __be32 addr;
+    __be16 port;
+    __u8 _pad[2];
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, struct proxy_target_info_v4);
+    __uint(max_entries, 256);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} rt4_proxy_map SEC(".maps");
+
 struct rt_cache_key_v4 {
     __be32 local_addr;
     __be32 remote_addr;

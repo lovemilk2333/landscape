@@ -734,6 +734,84 @@ pub fn del_wan_route_slots_v6(flow_id: FlowId) {
     clear_wan_route_slots_v6(&rt_target_map, flow_id);
 }
 
+/// Proxy target info (mirrors C struct proxy_target_info_v4)
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct proxy_target_info_v4_raw {
+    addr: u32,     // __be32, network byte order
+    port: u16,     // __be16, network byte order
+    _pad: [u8; 2],
+}
+
+/// Proxy target info (mirrors C struct proxy_target_info_v6)
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct proxy_target_info_v6_raw {
+    addr: [u8; 16], // union u_inet6_addr
+    port: u16,      // __be16
+    _pad: [u8; 6],
+}
+
+pub fn replace_proxy_target_v4(flow_id: FlowId, addr: u32, port: u16) {
+    use libbpf_rs::MapFlags;
+    let map = match libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.rt4_proxy_map) {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!("rt4_proxy_map not available: {e}");
+            return;
+        }
+    };
+    let key = flow_id.to_ne_bytes();
+    let value = proxy_target_info_v4_raw { addr, port: port.to_be(), _pad: [0; 2] };
+    let value_bytes = unsafe { plain::as_bytes(&value) };
+    if let Err(e) = map.update(&key, value_bytes, MapFlags::ANY) {
+        tracing::error!("update rt4_proxy_map error: {e:?}");
+    }
+}
+
+pub fn del_proxy_target_v4(flow_id: FlowId) {
+    use libbpf_rs::MapFlags;
+    let map = match libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.rt4_proxy_map) {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!("rt4_proxy_map not available: {e}");
+            return;
+        }
+    };
+    let key = flow_id.to_ne_bytes();
+    let _ = map.delete(&key);
+}
+
+pub fn replace_proxy_target_v6(flow_id: FlowId, addr: &[u8; 16], port: u16) {
+    use libbpf_rs::MapFlags;
+    let map = match libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.rt6_proxy_map) {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!("rt6_proxy_map not available: {e}");
+            return;
+        }
+    };
+    let key = flow_id.to_ne_bytes();
+    let value = proxy_target_info_v6_raw { addr: *addr, port: port.to_be(), _pad: [0; 6] };
+    let value_bytes = unsafe { plain::as_bytes(&value) };
+    if let Err(e) = map.update(&key, value_bytes, MapFlags::ANY) {
+        tracing::error!("update rt6_proxy_map error: {e:?}");
+    }
+}
+
+pub fn del_proxy_target_v6(flow_id: FlowId) {
+    use libbpf_rs::MapFlags;
+    let map = match libbpf_rs::MapHandle::from_pinned_path(&MAP_PATHS.rt6_proxy_map) {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!("rt6_proxy_map not available: {e}");
+            return;
+        }
+    };
+    let key = flow_id.to_ne_bytes();
+    let _ = map.delete(&key);
+}
+
 fn build_slot_indices(weights: &[u32]) -> Vec<usize> {
     let total_weight: u32 = weights.iter().sum();
     if total_weight == 0 {

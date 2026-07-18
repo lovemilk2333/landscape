@@ -17,10 +17,15 @@ use landscape_common::{
 };
 use landscape_database::flow_rule::repository::FlowConfigRepository;
 use landscape_dns::server::LocalDnsAnswerProvider;
-use landscape_ebpf::map_setting::route::{add_lan_route, del_lan_route};
+use landscape_ebpf::map_setting::route::{
+    add_lan_route, del_lan_route, del_proxy_target_v4, del_proxy_target_v6,
+    replace_proxy_target_v4, replace_proxy_target_v6,
+};
 use tokio::sync::{broadcast, mpsc, RwLock};
 
 use landscape_common::database::LandscapeStore;
+
+use crate::sys_service::proxy_dnat;
 
 type ShareRwLock<T> = Arc<RwLock<T>>;
 // One owner (interface / container) maps to one active WAN route target.
@@ -285,6 +290,7 @@ impl IpRouteService {
 
         refresh_ipv4_target_bpf_map(&flow_configs, ipv4_wan_infos);
         refresh_ipv6_target_bpf_map(&flow_configs, ipv6_wan_infos);
+        sync_proxy_targets(&flow_configs);
         landscape_ebpf::map_setting::route::cache::recreate_route_lan_cache_inner_map();
     }
 
@@ -587,6 +593,7 @@ impl IpRouteService {
         let flow_configs = self.flow_repo.find_by_target(t).await.unwrap_or_default();
         let ipv4_wan_infos = self.clone_ipv4_wan_infos().await;
         refresh_ipv4_target_bpf_map(&flow_configs, ipv4_wan_infos);
+        sync_proxy_targets(&flow_configs);
         landscape_ebpf::map_setting::route::cache::recreate_route_lan_cache_inner_map();
     }
 
@@ -594,6 +601,7 @@ impl IpRouteService {
         let flow_configs = self.flow_repo.find_by_target(t).await.unwrap_or_default();
         let ipv6_wan_infos = self.clone_ipv6_wan_infos().await;
         refresh_ipv6_target_bpf_map(&flow_configs, ipv6_wan_infos);
+        sync_proxy_targets(&flow_configs);
         landscape_ebpf::map_setting::route::cache::recreate_route_lan_cache_inner_map();
     }
 
@@ -779,6 +787,70 @@ pub fn refresh_ipv6_target_bpf_map(
 ) {
     let result = collect_target_refresh_result(flow_configs, &ipv6_wan_infos);
     apply_ipv6_target_refresh_result(result);
+}
+
+/// Sync proxy targets: update BPF proxy maps and nftables DNAT rules
+/// for all flow configs that have Tproxy targets.
+///
+/// Must be called whenever flow configs change.
+pub fn sync_proxy_targets(flow_configs: &[FlowConfig]) {
+    use std::net::Ipv4Addr;
+
+    let mut active_proxy_flows: Vec<u32> = Vec::new();
+
+    for config in flow_configs {
+        if !config.enable {
+            // Ensure stale entries are cleaned up for disabled flows
+            clear_proxy_targets(config.flow_id);
+            continue;
+        }
+
+        let proxy_targets: Vec<_> = config
+            .flow_targets
+            .iter()
+            .filter(|t| matches!(t.target, FlowTarget::Tproxy { .. }))
+            .collect();
+
+        if proxy_targets.is_empty() {
+            continue;
+        }
+
+        let flow_id = config.flow_id;
+
+        for wt in &proxy_targets {
+            if let FlowTarget::Tproxy { ref addr, port } = wt.target {
+                if let Ok(ipv4) = addr.parse::<Ipv4Addr>() {
+                    replace_proxy_target_v4(flow_id, u32::from(ipv4).to_be(), port);
+                    proxy_dnat::set_proxy_dnat_v4(flow_id, ipv4, port);
+                    if !active_proxy_flows.contains(&flow_id) {
+                        active_proxy_flows.push(flow_id);
+                    }
+                } else if let Ok(ipv6) = addr.parse::<std::net::Ipv6Addr>() {
+                    replace_proxy_target_v6(flow_id, &ipv6.octets(), port);
+                    proxy_dnat::set_proxy_dnat_v6(flow_id, ipv6, port);
+                    if !active_proxy_flows.contains(&flow_id) {
+                        active_proxy_flows.push(flow_id);
+                    }
+                } else {
+                    tracing::warn!("Invalid proxy address for flow {flow_id}: {addr}:{port}");
+                }
+            }
+        }
+    }
+
+    // Reconcile nftables rules and BPF maps: remove stale entries for flows no longer active
+    let stale_flows = proxy_dnat::sync_proxy_flows(&active_proxy_flows);
+    for flow_id in stale_flows {
+        del_proxy_target_v4(flow_id);
+        del_proxy_target_v6(flow_id);
+    }
+}
+
+/// Remove proxy targets for a specific flow (e.g., when the rule is deleted or disabled)
+pub fn clear_proxy_targets(flow_id: FlowId) {
+    del_proxy_target_v4(flow_id);
+    del_proxy_target_v6(flow_id);
+    proxy_dnat::del_proxy_dnat(flow_id);
 }
 
 pub async fn test_used_ip_route() -> (mpsc::Sender<RouteEvent>, IpRouteService) {

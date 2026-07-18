@@ -191,6 +191,12 @@ static __always_inline int tc_pick_wan_v4(struct __sk_buff *skb, u32 current_l3_
                        &context->daddr);
             return TC_ACT_SHOT;
         }
+        // Check if this flow has a proxy target — let nftables DNAT handle it
+        struct proxy_target_info_v4 *proxy =
+            bpf_map_lookup_elem(&rt4_proxy_map, &resolved_flow_id);
+        if (proxy != NULL) {
+            return TC_ACT_UNSPEC;
+        }
         ld_bpf_log("DROP flow_id v4: %d, ip: %pI4 -> %pI4", resolved_flow_id, &context->saddr,
                    &context->daddr);
         return TC_ACT_SHOT;
@@ -264,6 +270,12 @@ static __always_inline int tc_pick_wan_v6(struct __sk_buff *skb, u32 current_l3_
         if (resolved_flow_id == 0) {
             ld_bpf_log("DROP default flow v6, no target");
             return TC_ACT_SHOT;
+        }
+        // Check if this flow has a proxy target — let nftables DNAT handle it
+        struct proxy_target_info_v6 *proxy =
+            bpf_map_lookup_elem(&rt6_proxy_map, &resolved_flow_id);
+        if (proxy != NULL) {
+            return TC_ACT_UNSPEC;
         }
         ld_bpf_log("DROP flow_id v6: %d", resolved_flow_id);
         return TC_ACT_SHOT;

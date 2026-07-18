@@ -96,8 +96,16 @@ pub fn init_tc_wan_route(
         "tc_wan_egress pin rt4_target_slot_map"
     )?;
     crate::bpf_ctx!(
+        pin_and_reuse_map(&mut open_skel.maps.rt4_proxy_map, &MAP_PATHS.rt4_proxy_map),
+        "tc_wan_egress pin rt4_proxy_map"
+    )?;
+    crate::bpf_ctx!(
         pin_and_reuse_map(&mut open_skel.maps.rt6_target_slot_map, &MAP_PATHS.rt6_target_slot_map),
         "tc_wan_egress pin rt6_target_slot_map"
+    )?;
+    crate::bpf_ctx!(
+        pin_and_reuse_map(&mut open_skel.maps.rt6_proxy_map, &MAP_PATHS.rt6_proxy_map),
+        "tc_wan_egress pin rt6_proxy_map"
     )?;
     crate::bpf_ctx!(
         pin_and_reuse_map(&mut open_skel.maps.flow4_dns_map, &MAP_PATHS.flow4_dns_map),

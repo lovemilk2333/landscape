@@ -1,0 +1,204 @@
+use std::net::{Ipv4Addr, Ipv6Addr};
+use std::process::Command;
+use std::sync::Mutex;
+
+/// Tracks which flow_ids currently have proxy targets, so we can clean up
+/// stale entries when flow rules are removed or disabled.
+static ACTIVE_PROXY_FLOWS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+
+/// Manages nftables DNAT rules for flow proxy targets.
+///
+/// Uses a dedicated table `landscape_flow` with a `prerouting` chain
+/// (type nat, hook prerouting). Each rule matches on the flow_id bits
+/// in `skb->mark` and DNATs to the proxy address:port.
+///
+/// Table layout:
+///   table ip landscape_flow {
+///     chain prerouting {
+///       type nat hook prerouting priority -105;
+///       mark and 0x000000ff == 5 dnat to 192.168.1.100:1080 comment "landscape_flow_5"
+///     }
+///   }
+const NFT_TABLE: &str = "landscape_flow";
+const NFT_CHAIN: &str = "prerouting";
+const NFT_PRIORITY: &str = "-105";
+
+/// Reconcile proxy DNAT rules: enable rules for `active`, remove rules for any
+/// flow that was previously active but is no longer in `active`.
+///
+/// Returns the list of flow_ids that were active before but are no longer,
+/// so the caller can also clean up the BPF proxy map entries.
+///
+/// The caller is responsible for inserting/updating individual proxy entries in
+/// the BPF proxy map. This function only manages nftables rules.
+pub fn sync_proxy_flows(active: &[u32]) -> Vec<u32> {
+    let mut prev = ACTIVE_PROXY_FLOWS.lock().unwrap();
+    let stale: Vec<u32> = prev.iter().filter(|f| !active.contains(f)).copied().collect();
+    for flow_id in &stale {
+        del_proxy_dnat(*flow_id);
+    }
+    *prev = active.to_vec();
+    stale
+}
+
+pub fn init_table() {
+    let table = format!("ip {}", NFT_TABLE);
+    // Create table (ignores "already exists" error)
+    let _ = Command::new("nft")
+        .args(["add", "table", &table])
+        .output();
+    // Create chain (ignores "already exists" error)
+    let _ = Command::new("nft")
+        .args([
+            "add", "chain", &table, NFT_CHAIN,
+            "{", "type", "nat", "hook", "prerouting", "priority", NFT_PRIORITY, ";", "}",
+        ])
+        .output();
+}
+
+pub fn cleanup_table() {
+    let table = format!("ip {}", NFT_TABLE);
+    let _ = Command::new("nft")
+        .args(["delete", "table", &table])
+        .output();
+}
+
+fn rule_comment(flow_id: u32) -> String {
+    format!("landscape_flow_{}", flow_id)
+}
+
+pub fn set_proxy_dnat_v4(flow_id: u32, addr: Ipv4Addr, port: u16) {
+    init_table();
+    let table = format!("ip {}", NFT_TABLE);
+    let comment = rule_comment(flow_id);
+
+    // Remove existing rule for this flow_id first
+    del_proxy_dnat(flow_id);
+
+    // Add new DNAT rule matching on the flow_id bits of skb->mark
+    let status = Command::new("nft")
+        .args([
+            "add", "rule", &table, NFT_CHAIN,
+            "mark", "and", "0x000000ff", "==", &flow_id.to_string(),
+            "dnat", "to", &format!("{}:{}", addr, port),
+            "comment", &comment,
+        ])
+        .output();
+
+    match status {
+        Ok(output) => {
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                tracing::warn!("nft add dnat rule failed for flow {flow_id}: {stderr}");
+            } else {
+                tracing::info!("nft dnat rule added for flow {flow_id} -> {addr}:{port}");
+            }
+        }
+        Err(e) => {
+            tracing::error!("nft command failed: {e}");
+        }
+    }
+}
+
+pub fn set_proxy_dnat_v6(flow_id: u32, addr: Ipv6Addr, port: u16) {
+    init_table();
+    let table = format!("ip {}", NFT_TABLE);
+    let comment = rule_comment(flow_id);
+
+    del_proxy_dnat(flow_id);
+
+    let status = Command::new("nft")
+        .args([
+            "add", "rule", &table, NFT_CHAIN,
+            "mark", "and", "0x000000ff", "==", &flow_id.to_string(),
+            "dnat", "to", &format!("[{}]:{}", addr, port),
+            "comment", &comment,
+        ])
+        .output();
+
+    match status {
+        Ok(output) => {
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                tracing::warn!("nft add dnat v6 rule failed for flow {flow_id}: {stderr}");
+            } else {
+                tracing::info!("nft dnat v6 rule added for flow {flow_id} -> [{addr}]:{port}");
+            }
+        }
+        Err(e) => {
+            tracing::error!("nft command failed: {e}");
+        }
+    }
+}
+
+pub fn del_proxy_dnat(flow_id: u32) {
+    let table = format!("ip {}", NFT_TABLE);
+    let comment = rule_comment(flow_id);
+
+    // List rules with matching comment, extract handle, and delete
+    let output = match Command::new("nft")
+        .args(["--json", "list", "chain", &table, NFT_CHAIN])
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => return, // Table or chain doesn't exist
+    };
+
+    if !output.status.success() {
+        return;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let handles = extract_rule_handles_by_comment(&stdout, &comment);
+
+    for handle in handles {
+        let _ = Command::new("nft")
+            .args(["delete", "rule", &table, NFT_CHAIN, "handle", &handle.to_string()])
+            .output();
+    }
+}
+
+/// Parse nftables JSON output to find rule handles matching the given comment.
+fn extract_rule_handles_by_comment(json: &str, target_comment: &str) -> Vec<u64> {
+    let mut handles = Vec::new();
+
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(json);
+    let Ok(parsed) = parsed else {
+        return handles;
+    };
+
+    let rules = parsed.get("nftables").and_then(|v| v.as_array());
+    let Some(rules) = rules else {
+        return handles;
+    };
+
+    for rule in rules {
+        let rule_obj = match rule.as_object() {
+            Some(o) => o,
+            None => continue,
+        };
+        let rule_data = match rule_obj.get("rule") {
+            Some(v) => v.as_object(),
+            None => continue,
+        };
+        let Some(rule_data) = rule_data else {
+            continue;
+        };
+        let handle = match rule_data.get("handle") {
+            Some(v) => v.as_u64(),
+            None => continue,
+        };
+        let Some(handle) = handle else {
+            continue;
+        };
+        let user_comment = rule_data
+            .get("comment")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if user_comment == target_comment {
+            handles.push(handle);
+        }
+    }
+
+    handles
+}

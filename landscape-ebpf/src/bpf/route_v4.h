@@ -231,11 +231,15 @@ static __always_inline int pick_wan_and_send_by_flow_id_v4(struct __sk_buff *skb
         if (resolved_flow_id == 0) {
             // Default flow PASS
             return TC_ACT_UNSPEC;
-        } else {
-            ld_bpf_log("DROP flow_id v4: %d, ip: %pI4", resolved_flow_id, &context->saddr);
-            // Other DROP
-            return TC_ACT_SHOT;
         }
+        // Check if this flow has a proxy target — let nftables DNAT handle it
+        struct proxy_target_info_v4 *proxy =
+            bpf_map_lookup_elem(&rt4_proxy_map, &resolved_flow_id);
+        if (proxy != NULL) {
+            return TC_ACT_UNSPEC;
+        }
+        ld_bpf_log("DROP flow_id v4: %d, ip: %pI4", resolved_flow_id, &context->saddr);
+        return TC_ACT_SHOT;
     }
 
     if (target_info->ifindex == skb->ifindex) {
