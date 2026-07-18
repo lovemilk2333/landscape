@@ -6,6 +6,7 @@ on:
       - '*'
     branches:
       - 'build'
+  workflow_dispatch:
 
 env:
   sccache_version: 'v0.12.0'
