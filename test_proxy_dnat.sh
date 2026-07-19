@@ -29,12 +29,12 @@ nft add chain ip landscape_flow output { type nat hook output priority -105\; }
 
 # DNAT 规则: 匹配 mark 低 8 位 == FLOW_ID
 nft add rule ip landscape_flow prerouting \
-  mark and 0x000000ff == $FLOW_ID \
+  mark and 0x000000ff == $FLOW_ID meta l4proto '{ tcp, udp }' \
   dnat to $PROXY_ADDR:$PROXY_PORT \
   comment "landscape_flow_${FLOW_ID}"
 
 nft add rule ip landscape_flow output \
-  mark and 0x000000ff == $FLOW_ID \
+  mark and 0x000000ff == $FLOW_ID meta l4proto '{ tcp, udp }' \
   dnat to $PROXY_ADDR:$PROXY_PORT \
   comment "landscape_flow_${FLOW_ID}"
 

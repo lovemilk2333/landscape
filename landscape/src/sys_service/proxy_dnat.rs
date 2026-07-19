@@ -81,7 +81,8 @@ fn add_rule_to_all_chains(
         let status = Command::new("nft")
             .args([
                 "add", "rule", table, chain, "mark", "and", "0x000000ff", "==",
-                &flow_id.to_string(), "dnat", "to", dnat_target, "comment", comment,
+                &flow_id.to_string(), "meta", "l4proto", "{", "tcp", ",", "udp", "}",
+                "dnat", "to", dnat_target, "comment", comment,
             ])
             .output();
         match status {
