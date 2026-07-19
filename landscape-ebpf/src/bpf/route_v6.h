@@ -239,8 +239,7 @@ static __always_inline int pick_wan_and_send_by_flow_id_v6(struct __sk_buff *skb
             return TC_ACT_UNSPEC;
         }
         // Check if this flow has a proxy target — let nftables DNAT handle it
-        struct proxy_target_info_v6 *proxy =
-            bpf_map_lookup_elem(&rt6_proxy_map, &resolved_flow_id);
+        struct proxy_target_info_v6 *proxy = bpf_map_lookup_elem(&rt6_proxy_map, &resolved_flow_id);
         if (proxy != NULL) {
             return TC_ACT_UNSPEC;
         }

@@ -192,8 +192,7 @@ static __always_inline int tc_pick_wan_v4(struct __sk_buff *skb, u32 current_l3_
             return TC_ACT_SHOT;
         }
         // Check if this flow has a proxy target — let nftables DNAT handle it
-        struct proxy_target_info_v4 *proxy =
-            bpf_map_lookup_elem(&rt4_proxy_map, &resolved_flow_id);
+        struct proxy_target_info_v4 *proxy = bpf_map_lookup_elem(&rt4_proxy_map, &resolved_flow_id);
         if (proxy != NULL) {
             return TC_ACT_UNSPEC;
         }
@@ -272,8 +271,7 @@ static __always_inline int tc_pick_wan_v6(struct __sk_buff *skb, u32 current_l3_
             return TC_ACT_SHOT;
         }
         // Check if this flow has a proxy target — let nftables DNAT handle it
-        struct proxy_target_info_v6 *proxy =
-            bpf_map_lookup_elem(&rt6_proxy_map, &resolved_flow_id);
+        struct proxy_target_info_v6 *proxy = bpf_map_lookup_elem(&rt6_proxy_map, &resolved_flow_id);
         if (proxy != NULL) {
             return TC_ACT_UNSPEC;
         }
