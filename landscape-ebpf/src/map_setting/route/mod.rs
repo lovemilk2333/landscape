@@ -738,8 +738,8 @@ pub fn del_wan_route_slots_v6(flow_id: FlowId) {
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 struct proxy_target_info_v4_raw {
-    addr: u32,     // __be32, network byte order
-    port: u16,     // __be16, network byte order
+    addr: u32, // __be32, network byte order
+    port: u16, // __be16, network byte order
     _pad: [u8; 2],
 }
 

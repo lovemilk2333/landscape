@@ -44,23 +44,30 @@ pub fn sync_proxy_flows(active: &[u32]) -> Vec<u32> {
 pub fn init_table() {
     let table = format!("ip {}", NFT_TABLE);
     // Create table (ignores "already exists" error)
-    let _ = Command::new("nft")
-        .args(["add", "table", &table])
-        .output();
+    let _ = Command::new("nft").args(["add", "table", &table]).output();
     // Create chain (ignores "already exists" error)
     let _ = Command::new("nft")
         .args([
-            "add", "chain", &table, NFT_CHAIN,
-            "{", "type", "nat", "hook", "prerouting", "priority", NFT_PRIORITY, ";", "}",
+            "add",
+            "chain",
+            &table,
+            NFT_CHAIN,
+            "{",
+            "type",
+            "nat",
+            "hook",
+            "prerouting",
+            "priority",
+            NFT_PRIORITY,
+            ";",
+            "}",
         ])
         .output();
 }
 
 pub fn cleanup_table() {
     let table = format!("ip {}", NFT_TABLE);
-    let _ = Command::new("nft")
-        .args(["delete", "table", &table])
-        .output();
+    let _ = Command::new("nft").args(["delete", "table", &table]).output();
 }
 
 fn rule_comment(flow_id: u32) -> String {
@@ -78,10 +85,20 @@ pub fn set_proxy_dnat_v4(flow_id: u32, addr: Ipv4Addr, port: u16) {
     // Add new DNAT rule matching on the flow_id bits of skb->mark
     let status = Command::new("nft")
         .args([
-            "add", "rule", &table, NFT_CHAIN,
-            "mark", "and", "0x000000ff", "==", &flow_id.to_string(),
-            "dnat", "to", &format!("{}:{}", addr, port),
-            "comment", &comment,
+            "add",
+            "rule",
+            &table,
+            NFT_CHAIN,
+            "mark",
+            "and",
+            "0x000000ff",
+            "==",
+            &flow_id.to_string(),
+            "dnat",
+            "to",
+            &format!("{}:{}", addr, port),
+            "comment",
+            &comment,
         ])
         .output();
 
@@ -109,10 +126,20 @@ pub fn set_proxy_dnat_v6(flow_id: u32, addr: Ipv6Addr, port: u16) {
 
     let status = Command::new("nft")
         .args([
-            "add", "rule", &table, NFT_CHAIN,
-            "mark", "and", "0x000000ff", "==", &flow_id.to_string(),
-            "dnat", "to", &format!("[{}]:{}", addr, port),
-            "comment", &comment,
+            "add",
+            "rule",
+            &table,
+            NFT_CHAIN,
+            "mark",
+            "and",
+            "0x000000ff",
+            "==",
+            &flow_id.to_string(),
+            "dnat",
+            "to",
+            &format!("[{}]:{}", addr, port),
+            "comment",
+            &comment,
         ])
         .output();
 
@@ -136,13 +163,11 @@ pub fn del_proxy_dnat(flow_id: u32) {
     let comment = rule_comment(flow_id);
 
     // List rules with matching comment, extract handle, and delete
-    let output = match Command::new("nft")
-        .args(["--json", "list", "chain", &table, NFT_CHAIN])
-        .output()
-    {
-        Ok(o) => o,
-        Err(_) => return, // Table or chain doesn't exist
-    };
+    let output =
+        match Command::new("nft").args(["--json", "list", "chain", &table, NFT_CHAIN]).output() {
+            Ok(o) => o,
+            Err(_) => return, // Table or chain doesn't exist
+        };
 
     if !output.status.success() {
         return;
@@ -191,10 +216,7 @@ fn extract_rule_handles_by_comment(json: &str, target_comment: &str) -> Vec<u64>
         let Some(handle) = handle else {
             continue;
         };
-        let user_comment = rule_data
-            .get("comment")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let user_comment = rule_data.get("comment").and_then(|v| v.as_str()).unwrap_or("");
         if user_comment == target_comment {
             handles.push(handle);
         }
