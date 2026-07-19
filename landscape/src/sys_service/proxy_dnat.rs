@@ -55,8 +55,19 @@ pub fn init_table() {
     for chain in &ALL_CHAINS {
         let _ = Command::new("nft")
             .args([
-                "add", "chain", &table, chain, "{", "type", "nat", "hook", chain, "priority",
-                NFT_PRIORITY, ";", "}",
+                "add",
+                "chain",
+                &table,
+                chain,
+                "{",
+                "type",
+                "nat",
+                "hook",
+                chain,
+                "priority",
+                NFT_PRIORITY,
+                ";",
+                "}",
             ])
             .output();
     }
@@ -71,27 +82,44 @@ fn rule_comment(flow_id: u32) -> String {
     format!("landscape_flow_{}", flow_id)
 }
 
-fn add_rule_to_all_chains(
-    table: &str,
-    flow_id: u32,
-    dnat_target: &str,
-    comment: &str,
-) {
+fn add_rule_to_all_chains(table: &str, flow_id: u32, dnat_target: &str, comment: &str) {
     for chain in &ALL_CHAINS {
         let status = Command::new("nft")
             .args([
-                "add", "rule", table, chain, "mark", "and", "0x000000ff", "==",
-                &flow_id.to_string(), "meta", "l4proto", "{", "tcp", ",", "udp", "}",
-                "dnat", "to", dnat_target, "comment", comment,
+                "add",
+                "rule",
+                table,
+                chain,
+                "mark",
+                "and",
+                "0x000000ff",
+                "==",
+                &flow_id.to_string(),
+                "meta",
+                "l4proto",
+                "{",
+                "tcp",
+                ",",
+                "udp",
+                "}",
+                "dnat",
+                "to",
+                dnat_target,
+                "comment",
+                comment,
             ])
             .output();
         match status {
             Ok(output) => {
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    tracing::warn!("nft add dnat rule failed for chain {chain} flow {flow_id}: {stderr}");
+                    tracing::warn!(
+                        "nft add dnat rule failed for chain {chain} flow {flow_id}: {stderr}"
+                    );
                 } else {
-                    tracing::info!("nft dnat rule added to {chain} for flow {flow_id} -> {dnat_target}");
+                    tracing::info!(
+                        "nft dnat rule added to {chain} for flow {flow_id} -> {dnat_target}"
+                    );
                 }
             }
             Err(e) => tracing::error!("nft command failed for chain {chain}: {e}"),
@@ -120,13 +148,11 @@ pub fn del_proxy_dnat(flow_id: u32) {
     let table = format!("ip {}", NFT_TABLE);
     let comment = rule_comment(flow_id);
     for chain in &ALL_CHAINS {
-        let output = match Command::new("nft")
-            .args(["--json", "list", "chain", &table, chain])
-            .output()
-        {
-            Ok(o) => o,
-            Err(_) => continue,
-        };
+        let output =
+            match Command::new("nft").args(["--json", "list", "chain", &table, chain]).output() {
+                Ok(o) => o,
+                Err(_) => continue,
+            };
         if !output.status.success() {
             continue;
         }
